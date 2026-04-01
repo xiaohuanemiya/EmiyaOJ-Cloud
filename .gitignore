@@ -37,3 +37,13 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+# Runtime / temp files
+logs/
+*.log
+*.tmp
+*.pid
+hs_err_pid*
+replay_pid*
+.env
+.env.*
