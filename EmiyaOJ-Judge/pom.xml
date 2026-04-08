@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.emiyaoj</groupId>
+        <artifactId>EmiyaOJ-Cloud</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>EmiyaOJ-Judge</artifactId>
+    <packaging>pom</packaging>
+    <name>EmiyaOJ-Judge</name>
+    <description>判题服务父模块（包含提交管理 + 判题引擎）</description>
+
+    <modules>
+        <module>judge-dto</module>
+        <module>judge-api</module>
+        <module>judge-service</module>
+    </modules>
+
+</project>
