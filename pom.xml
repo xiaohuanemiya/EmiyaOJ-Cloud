@@ -10,9 +10,9 @@
     <packaging>pom</packaging>
     <modules>
         <module>EmiyaOJ-user</module>
-        <module>emiyaOJ-common</module>
+        <module>EmiyaOJ-common</module>
         <module>gateway-service</module>
-        <module>EmiyaOJ-gateway</module>
+        <module>auth-service</module>
     </modules>
     <!-- 引入 Spring Boot 父工程 -->
     <parent>
