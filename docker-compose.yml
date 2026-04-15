@@ -6,7 +6,7 @@ services:
   # =====================================================
 
   mysql:
-    image: mysql:8.0
+    image: mysql:8.0.31
     container_name: emiyaoj-mysql
     restart: always
     ports:
