@@ -25,16 +25,20 @@ public class SubmissionVO implements Serializable {
 
     private Long languageId;
 
-    /** 判题状态 */
-    private String status;
+    /**
+     * 判题状态:
+     * 0-Pending, 1-Judging, 2-AC, 3-CE, 4-SE,
+     * 5-WA, 6-TLE, 7-MLE, 8-RE, 9-OLE, 10-PA
+     */
+    private Integer status;
 
     private Integer score;
 
     /** 使用时间（毫秒） */
-    private Integer timeUsed;
+    private Long timeUsed;
 
     /** 使用内存（KB） */
-    private Integer memoryUsed;
+    private Long memoryUsed;
 
     /** 错误信息 */
     private String errorMessage;
@@ -43,7 +47,7 @@ public class SubmissionVO implements Serializable {
     private String compileMessage;
 
     /** 通过率 */
-    private String passRate;
+    private Double passRate;
 
     private LocalDateTime createTime;
 }

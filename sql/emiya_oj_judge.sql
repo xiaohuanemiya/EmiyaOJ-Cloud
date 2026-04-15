@@ -17,7 +17,7 @@ CREATE TABLE `submission`  (
   `user_id` bigint NOT NULL COMMENT '用户ID',
   `language_id` bigint NOT NULL COMMENT '语言ID',
   `code` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '源代码',
-  `status` int NOT NULL DEFAULT 0 COMMENT '判题状态：0-待判题, 1-判题中, 2-已完成, 3-编译错误, 4-系统错误',
+  `status` int NOT NULL DEFAULT 0 COMMENT '判题状态：0-Pending, 1-Judging, 2-AC, 3-CE, 4-SE, 5-WA, 6-TLE, 7-MLE, 8-RE, 9-OLE, 10-PA',
   `score` int NULL DEFAULT 0 COMMENT '得分(0~100)',
   `time_used` bigint NULL DEFAULT 0 COMMENT '最大运行时间（毫秒）',
   `memory_used` bigint NULL DEFAULT 0 COMMENT '最大运行内存（KB）',

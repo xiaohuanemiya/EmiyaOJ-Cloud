@@ -27,7 +27,6 @@ public class GoJudgeService {
     // ===================== 语言编译 & 运行参数配置 =====================
 
     private static final long NANOSECOND = 1_000_000_000L;
-    private static final long KB = 1024L;
     private static final long MB = 1024 * 1024L;
 
     /**
@@ -66,14 +65,14 @@ public class GoJudgeService {
      * @param code         源代码 (Python 需要)
      * @param testCase     测试用例
      * @param timeLimit    时间限制(ms)
-     * @param memoryLimit  内存限制(KB)
+     * @param memoryLimit  内存限制(MB)
      * @return 运行结果
      */
     public GoJudgeResult run(String languageName, Map<String, String> fileIds,
                              String code, TestCaseVO testCase,
                              long timeLimit, long memoryLimit) {
         Cmd runCmd = buildRunCmd(languageName, fileIds, code, testCase.getInput(),
-                timeLimit * 1_000_000L, memoryLimit * KB);
+                timeLimit * 1_000_000L, memoryLimit * MB);
 
         GoJudgeRequest request = GoJudgeRequest.builder()
                 .cmd(List.of(runCmd))

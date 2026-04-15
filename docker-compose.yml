@@ -73,7 +73,9 @@ services:
   # =====================================================
 
   go-judge:
-    image: criyle/go-judge:latest
+    build:
+      context: ./go-judge
+      dockerfile: Dockerfile
     container_name: emiyaoj-go-judge
     restart: always
     ports:

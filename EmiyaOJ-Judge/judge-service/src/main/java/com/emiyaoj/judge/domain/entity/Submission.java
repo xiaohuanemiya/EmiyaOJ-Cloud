@@ -28,7 +28,10 @@ public class Submission {
     private String code;
 
     /**
-     * 判题状态: 0-待判题, 1-判题中, 2-已完成, 3-编译错误, 4-系统错误
+     * 判题状态:
+     * 0-Pending(待判题), 1-Judging(判题中), 2-AC(通过), 3-CE(编译错误),
+     * 4-SE(系统错误), 5-WA(答案错误), 6-TLE(时间超限), 7-MLE(内存超限),
+     * 8-RE(运行错误), 9-OLE(输出超限), 10-PA(部分通过)
      */
     private Integer status;
 
