@@ -14,10 +14,17 @@
     <description>博客服务 - 对外暴露的 DTO/VO（不依赖任何业务模块）</description>
 
     <dependencies>
+        <!-- Jackson 注解 -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
+        <!-- Jackson Databind（@JsonSerialize / ToStringSerializer） -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- Validation -->
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>

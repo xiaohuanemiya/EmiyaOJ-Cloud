@@ -3,6 +3,7 @@ package com.emiyaoj.chat.controller;
 import com.emiyaoj.chat.dto.ChatRequestDTO;
 import com.emiyaoj.chat.service.IChatService;
 import com.emiyaoj.common.domain.ResponseResult;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -18,9 +19,7 @@ public class ChatController {
 
     private final IChatService chatService;
 
-    /**
-     * 发送消息给 AI 助手
-     */
+    @Operation(summary = "发送消息给 AI 助手", description = "发送用户消息并获取 AI 回复")
     @PostMapping("/send")
     public ResponseResult<String> sendMessage(@RequestBody ChatRequestDTO requestDTO) {
         String reply = chatService.sendMessage(requestDTO);

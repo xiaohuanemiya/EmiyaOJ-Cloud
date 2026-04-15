@@ -2,6 +2,8 @@ package com.emiyaoj.gateway.filter;
 
 import com.emiyaoj.gateway.config.GatewayWhitelistProperties;
 import com.emiyaoj.gateway.config.JwtProperties;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -27,6 +29,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 网关全局认证过滤器
@@ -46,6 +49,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
     private final JwtProperties jwtProperties;
     private final GatewayWhitelistProperties whitelistProperties;
     private final ReactiveStringRedisTemplate reactiveRedisTemplate;
+    private final ObjectMapper objectMapper;
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
@@ -152,8 +156,13 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-        String body = "{\"code\":401,\"message\":\"" + message + "\",\"data\":null}";
-        DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
+        byte[] bytes;
+        try {
+            bytes = objectMapper.writeValueAsBytes(Map.of("code", 401, "message", message, "data", ""));
+        } catch (JsonProcessingException e) {
+            bytes = ("{\"code\":401,\"message\":\"" + message + "\",\"data\":null}").getBytes(StandardCharsets.UTF_8);
+        }
+        DataBuffer buffer = response.bufferFactory().wrap(bytes);
         return response.writeWith(Mono.just(buffer));
     }
 }

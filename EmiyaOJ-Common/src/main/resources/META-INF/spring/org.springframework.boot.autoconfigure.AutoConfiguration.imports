@@ -1,7 +1,9 @@
+com.emiyaoj.common.config.JacksonConfig
 com.emiyaoj.common.config.RedisConfig
 com.emiyaoj.common.config.MybatisPlusConfig
 com.emiyaoj.common.config.WebMvcConfig
 com.emiyaoj.common.config.FeignConfig
+com.emiyaoj.common.config.OpenApiConfig
 com.emiyaoj.common.handler.GlobalExceptionHandler
 com.emiyaoj.common.properties.JwtProperties
 com.emiyaoj.common.utils.RedisUtil

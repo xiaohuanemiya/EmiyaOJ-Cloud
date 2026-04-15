@@ -26,3 +26,17 @@ mybatis-plus:
 logging:
   level:
     com.emiyaoj: DEBUG
+
+# SpringDoc OpenAPI 配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: default
+      display-name: 博客服务
+      paths-to-match: '/**'
+      packages-to-scan: com.emiyaoj.blog.controller

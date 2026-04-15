@@ -14,14 +14,10 @@
     <description>AI 聊天服务 - 核心业务实现</description>
 
     <dependencies>
-        <!-- 本模块 -->
+        <!-- 本模块 api（传递引入 chat-dto） -->
         <dependency>
             <groupId>com.emiyaoj</groupId>
             <artifactId>chat-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.emiyaoj</groupId>
-            <artifactId>chat-dto</artifactId>
         </dependency>
         <!-- 公共模块 -->
         <dependency>
@@ -29,49 +25,36 @@
             <artifactId>emiyaoj-common</artifactId>
         </dependency>
 
-        <!-- Spring Boot Web -->
+        <!-- ===== 以下依赖在 common 中为 optional，此处显式引入以激活 ===== -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <!-- Spring Boot Data Redis -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
-        <!-- Spring Boot Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-
-        <!-- Nacos 服务发现 -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
-        <!-- Nacos 配置中心 -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
         </dependency>
-        <!-- Spring Cloud Bootstrap -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-bootstrap</artifactId>
         </dependency>
-
-        <!-- Knife4j -->
         <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         </dependency>
 
-        <!-- FastJSON2（DashScope API 请求/响应序列化） -->
-        <dependency>
-            <groupId>com.alibaba.fastjson2</groupId>
-            <artifactId>fastjson2</artifactId>
-        </dependency>
     </dependencies>
 
     <build>

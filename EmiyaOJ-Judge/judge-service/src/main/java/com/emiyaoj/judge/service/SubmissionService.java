@@ -10,7 +10,6 @@ import com.emiyaoj.judge.domain.entity.MessageEvent;
 import com.emiyaoj.judge.domain.entity.Submission;
 import com.emiyaoj.judge.domain.gojudge.GoJudgeResult;
 import com.emiyaoj.judge.domain.gojudge.GoJudgeStatus;
-import com.emiyaoj.judge.dto.JudgeResultDTO;
 import com.emiyaoj.judge.dto.SubmissionVO;
 import com.emiyaoj.judge.dto.SubmitCodeDTO;
 import com.emiyaoj.judge.mapper.MessageEventMapper;
@@ -124,7 +123,7 @@ public class SubmissionService {
             // 获取语言信息
             ResponseResult<LanguageVO> langResult = problemFeignClient.getLanguageById(languageId);
             if (langResult == null || langResult.getData() == null) {
-                updateSubmissionError(submission, 4, "获取语言信息失败");
+                updateSubmissionError(submission, "获取语言信息失败");
                 return;
             }
             String languageName = langResult.getData().getName();
@@ -132,7 +131,7 @@ public class SubmissionService {
             // 获取测试用例
             ResponseResult<List<TestCaseVO>> testCaseResult = problemFeignClient.getTestCasesByProblemId(problemId);
             if (testCaseResult == null || testCaseResult.getData() == null || testCaseResult.getData().isEmpty()) {
-                updateSubmissionError(submission, 4, "获取测试用例失败或无测试用例");
+                updateSubmissionError(submission, "获取测试用例失败或无测试用例");
                 return;
             }
             List<TestCaseVO> testCases = testCaseResult.getData();
@@ -218,7 +217,7 @@ public class SubmissionService {
             // 计算结果
             double passRate = testCases.isEmpty() ? 0 : (double) passCount / testCases.size();
             int score = (int) Math.round(passRate * 100);
-            int status = passCount == testCases.size() ? 2 : 2; // 都算已完成
+            int status = 2; // 都算已完成
 
             submission.setStatus(status);
             submission.setScore(score);
@@ -235,7 +234,7 @@ public class SubmissionService {
 
         } catch (Exception e) {
             log.error("Judge failed for submission: {}", submissionId, e);
-            updateSubmissionError(submission, 4, "系统错误: " + e.getMessage());
+            updateSubmissionError(submission, "系统错误: " + e.getMessage());
         }
     }
 
@@ -276,13 +275,13 @@ public class SubmissionService {
             return vo;
         }).toList();
 
-        return PageVO.of(page.getTotal(), pageDTO.getPageNum(), pageDTO.getPageSize(), voList);
+        return new PageVO<>(page.getTotal(), voList, (long) pageDTO.getPageNum(), (long) pageDTO.getPageSize());
     }
 
     // ==================== 私有方法 ====================
 
-    private void updateSubmissionError(Submission submission, int status, String errorMessage) {
-        submission.setStatus(status);
+    private void updateSubmissionError(Submission submission, String errorMessage) {
+        submission.setStatus(4);
         submission.setErrorMessage(errorMessage);
         submission.setScore(0);
         submission.setPassRate(0.0);

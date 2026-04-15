@@ -19,10 +19,10 @@
             <groupId>com.emiyaoj</groupId>
             <artifactId>auth-dto</artifactId>
         </dependency>
-        <!-- OpenFeign -->
+        <!-- OpenFeign（仅需核心注解，不引入完整 starter） -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <artifactId>spring-cloud-openfeign-core</artifactId>
         </dependency>
         <!-- 公共模块（统一响应体） -->
         <dependency>

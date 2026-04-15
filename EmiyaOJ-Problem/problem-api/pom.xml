@@ -18,9 +18,10 @@
             <groupId>com.emiyaoj</groupId>
             <artifactId>problem-dto</artifactId>
         </dependency>
+        <!-- OpenFeign（仅需核心注解） -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <artifactId>spring-cloud-openfeign-core</artifactId>
         </dependency>
         <dependency>
             <groupId>com.emiyaoj</groupId>

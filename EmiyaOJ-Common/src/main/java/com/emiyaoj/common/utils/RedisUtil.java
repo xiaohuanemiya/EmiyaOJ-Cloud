@@ -1,16 +1,18 @@
 package com.emiyaoj.common.utils;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
 /**
- * Redis 工具类 — 封装常用操作
+ * Redis 工具类 — 封装常用操作，仅在 classpath 中存在 StringRedisTemplate 时生效
  */
 @Component
 @RequiredArgsConstructor
+@ConditionalOnClass(StringRedisTemplate.class)
 public class RedisUtil {
 
     private final StringRedisTemplate stringRedisTemplate;

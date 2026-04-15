@@ -1,8 +1,9 @@
 package com.emiyaoj.chat.service.impl;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
-import com.alibaba.fastjson2.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.emiyaoj.chat.config.ChatProperties;
 import com.emiyaoj.chat.dto.ChatMessageDTO;
 import com.emiyaoj.chat.dto.ChatRequestDTO;
@@ -12,9 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 聊天服务实现（调用阿里云百炼 DashScope API）
@@ -26,6 +24,7 @@ public class ChatServiceImpl implements IChatService {
 
     private final ChatProperties chatProperties;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     private static final String SYSTEM_PROMPT = """
             你的角色：一个专业、耐心且循循善诱的 OJ 编程伙伴（c和c++语言）。
@@ -62,10 +61,10 @@ public class ChatServiceImpl implements IChatService {
     public String sendMessage(ChatRequestDTO requestDTO) {
         try {
             // 构建消息列表
-            List<JSONObject> messages = new ArrayList<>();
+            ArrayNode messages = objectMapper.createArrayNode();
 
             // 系统提示词
-            JSONObject systemMessage = new JSONObject();
+            ObjectNode systemMessage = objectMapper.createObjectNode();
             systemMessage.put("role", "system");
             systemMessage.put("content", SYSTEM_PROMPT);
             messages.add(systemMessage);
@@ -73,7 +72,7 @@ public class ChatServiceImpl implements IChatService {
             // 历史对话
             if (requestDTO.getHistory() != null && !requestDTO.getHistory().isEmpty()) {
                 for (ChatMessageDTO historyMsg : requestDTO.getHistory()) {
-                    JSONObject msg = new JSONObject();
+                    ObjectNode msg = objectMapper.createObjectNode();
                     msg.put("role", historyMsg.getRole());
                     msg.put("content", historyMsg.getContent());
                     messages.add(msg);
@@ -81,19 +80,23 @@ public class ChatServiceImpl implements IChatService {
             }
 
             // 当前用户消息
-            JSONObject userMessage = new JSONObject();
+            ObjectNode userMessage = objectMapper.createObjectNode();
             userMessage.put("role", "user");
             userMessage.put("content", requestDTO.getMessage());
             messages.add(userMessage);
 
             // 构建请求体
-            JSONObject requestBody = new JSONObject();
+            ObjectNode requestBody = objectMapper.createObjectNode();
             requestBody.put("model", chatProperties.getModel());
-            requestBody.put("input", new JSONObject());
-            requestBody.getJSONObject("input").put("messages", messages);
-            requestBody.put("parameters", new JSONObject());
-            requestBody.getJSONObject("parameters").put("temperature", 0.7);
-            requestBody.getJSONObject("parameters").put("max_tokens", 2000);
+
+            ObjectNode input = objectMapper.createObjectNode();
+            input.set("messages", messages);
+            requestBody.set("input", input);
+
+            ObjectNode parameters = objectMapper.createObjectNode();
+            parameters.put("temperature", 0.7);
+            parameters.put("max_tokens", 2000);
+            requestBody.set("parameters", parameters);
 
             // 设置请求头
             HttpHeaders headers = new HttpHeaders();
@@ -101,7 +104,7 @@ public class ChatServiceImpl implements IChatService {
             headers.set("Authorization", "Bearer " + chatProperties.getApiKey());
             headers.set("X-DashScope-SSE", "disable");
 
-            HttpEntity<String> entity = new HttpEntity<>(requestBody.toJSONString(), headers);
+            HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
 
             // 发送请求
             ResponseEntity<String> response = restTemplate.exchange(
@@ -109,23 +112,25 @@ public class ChatServiceImpl implements IChatService {
 
             // 解析响应
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                JSONObject responseJson = JSON.parseObject(response.getBody());
-                JSONObject output = responseJson.getJSONObject("output");
+                JsonNode responseJson = objectMapper.readTree(response.getBody());
+                JsonNode output = responseJson.get("output");
                 if (output != null) {
-                    String text = output.getString("text");
-                    if (text != null && !text.isEmpty()) {
+                    JsonNode textNode = output.get("text");
+                    if (textNode != null && !textNode.asText().isEmpty()) {
+                        String text = textNode.asText();
                         log.info("AI回复成功，内容长度: {}", text.length());
                         return text;
                     }
 
                     // 兼容其他格式
-                    JSONArray choices = output.getJSONArray("choices");
-                    if (choices != null && !choices.isEmpty()) {
-                        JSONObject choice = choices.getJSONObject(0);
-                        JSONObject message = choice.getJSONObject("message");
+                    JsonNode choices = output.get("choices");
+                    if (choices != null && choices.isArray() && !choices.isEmpty()) {
+                        JsonNode choice = choices.get(0);
+                        JsonNode message = choice.get("message");
                         if (message != null) {
-                            String content = message.getString("content");
-                            if (content != null && !content.isEmpty()) {
+                            JsonNode contentNode = message.get("content");
+                            if (contentNode != null && !contentNode.asText().isEmpty()) {
+                                String content = contentNode.asText();
                                 log.info("AI回复成功，内容长度: {}", content.length());
                                 return content;
                             }

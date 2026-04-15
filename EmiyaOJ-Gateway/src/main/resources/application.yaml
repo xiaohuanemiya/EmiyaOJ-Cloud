@@ -67,9 +67,8 @@ gateway:
     - /auth/login
     - /auth/user/parse-token
     - /swagger-ui/**
+    - /swagger-ui.html
     - /v3/api-docs/**
-    - /doc.html
-    - /webjars/**
 
 logging:
   level:

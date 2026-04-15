@@ -3,6 +3,7 @@ package com.emiyaoj.common.config;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -10,10 +11,10 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * Feign 配置 — Token 透传与用户上下文透传
- * <p>
- * 在微服务间通过 Feign 调用时，自动将当前请求的 Authorization 头和网关注入的 X-User-* 头透传到下游服务。
+ * <p>仅在 classpath 中存在 Feign RequestInterceptor 时生效</p>
  */
 @Configuration
+@ConditionalOnClass(RequestInterceptor.class)
 public class FeignConfig {
 
     @Bean

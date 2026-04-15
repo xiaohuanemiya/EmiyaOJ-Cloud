@@ -1,6 +1,8 @@
 package com.emiyaoj.auth.config;
 
 import com.emiyaoj.auth.filter.JwtTokenOncePerRequestFilter;
+import com.emiyaoj.common.domain.ResponseResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +37,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtTokenOncePerRequestFilter jwtTokenFilter;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -70,12 +73,14 @@ public class SecurityConfig {
             ex.authenticationEntryPoint((request, response, authException) -> {
                 response.setContentType("application/json;charset=UTF-8");
                 response.setStatus(401);
-                response.getWriter().write("{\"code\":401,\"message\":\"未认证或Token已过期\",\"data\":null}");
+                objectMapper.writeValue(response.getOutputStream(),
+                        ResponseResult.fail(401, "未认证或Token已过期"));
             });
             ex.accessDeniedHandler((request, response, accessDeniedException) -> {
                 response.setContentType("application/json;charset=UTF-8");
                 response.setStatus(403);
-                response.getWriter().write("{\"code\":403,\"message\":\"权限不足\",\"data\":null}");
+                objectMapper.writeValue(response.getOutputStream(),
+                        ResponseResult.fail(403, "权限不足"));
             });
         });
 
@@ -84,12 +89,10 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/auth/login",
                         "/auth/user/parse-token",
+                        // SpringDoc OpenAPI / Swagger UI
                         "/swagger-ui/**",
                         "/swagger-ui.html",
-                        "/swagger-resources/**",
-                        "/v3/api-docs/**",
-                        "/webjars/**",
-                        "/doc.html"
+                        "/v3/api-docs/**"
                 ).permitAll()
                 .anyRequest().authenticated()
         );
