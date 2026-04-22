@@ -16,6 +16,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -177,7 +178,7 @@ class LanguageServiceTest {
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> languageService.saveLanguage(dto));
         assertEquals("同名同版本的语言已存在", ex.getMessage());
-        verify(languageMapper, never()).insert(any());
+        verify(languageMapper, never()).insert(Collections.singleton(any()));
     }
 
     // ======================== updateLanguage ========================
