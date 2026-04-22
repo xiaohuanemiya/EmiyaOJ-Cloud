@@ -1,0 +1,76 @@
+server:
+  port: 8080
+
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  cloud:
+    gateway:
+      # 全局 CORS 配置
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            maxAge: 3600
+      # 路由规则
+      routes:
+        # ========== 认证服务 ==========
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**
+
+        # ========== 题目服务 ==========
+        - id: problem-service
+          uri: lb://problem-service
+          predicates:
+            - Path=/problem/**,/tag/**,/test-case/**,/language/**
+
+        # ========== 判题服务 ==========
+        - id: judge-service
+          uri: lb://judge-service
+          predicates:
+            - Path=/judge/**,/submission/**
+
+        # ========== 博客服务 ==========
+        - id: blog-service
+          uri: lb://blog-service
+          predicates:
+            - Path=/blog/**
+
+        # ========== AI 聊天服务 ==========
+        - id: chat-service
+          uri: lb://chat-service
+          predicates:
+            - Path=/client/chat/**
+
+        # ========== 用户 / 角色 / 权限管理（认证服务） ==========
+        - id: auth-management
+          uri: lb://auth-service
+          predicates:
+            - Path=/user/**,/role/**,/permission/**
+
+# JWT 配置（网关层解析 Token）
+jwt:
+  secret-key: EmiyaOJ-JWT-Secret-Key-2024-Very-Long-And-Secure-String-For-HMAC-SHA256-Algorithm
+  ttl: 7200000
+  token-name: Authorization
+
+# 网关白名单（无需认证的路径）
+gateway:
+  whitelist:
+    - /auth/login
+    - /auth/user/parse-token
+    - /swagger-ui/**
+    - /swagger-ui.html
+    - /v3/api-docs/**
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    com.emiyaoj: DEBUG

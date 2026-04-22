@@ -1,0 +1,52 @@
+server:
+  port: 9010
+
+spring:
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/emiya_oj_auth?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+# JWT 配置
+jwt:
+  secret-key: EmiyaOJ-JWT-Secret-Key-2024-Very-Long-And-Secure-String-For-HMAC-SHA256-Algorithm
+  ttl: 7200000
+  token-name: Authorization
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  configuration:
+    default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      update-strategy: not_null
+      id-type: assign_id
+  type-aliases-package: com.emiyaoj.auth.domain.pojo
+  mapper-locations: classpath:/mapper/**/*.xml
+
+# 日志配置
+logging:
+  level:
+    com.emiyaoj: DEBUG
+    org.springframework.security: DEBUG
+
+# SpringDoc OpenAPI 配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: default
+      display-name: 认证服务
+      paths-to-match: '/**'
+      packages-to-scan: com.emiyaoj.auth.controller

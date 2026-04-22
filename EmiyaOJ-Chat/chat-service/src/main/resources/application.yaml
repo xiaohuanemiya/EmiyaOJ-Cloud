@@ -1,0 +1,33 @@
+server:
+  port: 9050
+
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+# AI Chat 配置
+chat:
+  api-key: ${CHAT_API_KEY:sk-492762b5f2434bf59cfcbe80ce6612f5}
+  api-url: https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation
+  model: qwen-turbo
+
+logging:
+  level:
+    com.emiyaoj: DEBUG
+
+# SpringDoc OpenAPI 配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: default
+      display-name: AI 聊天服务
+      paths-to-match: '/**'
+      packages-to-scan: com.emiyaoj.chat.controller
