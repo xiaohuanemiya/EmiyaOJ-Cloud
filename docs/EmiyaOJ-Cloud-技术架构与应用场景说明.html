@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>EmiyaOJ-Cloud &#x6280;&#x672f;&#x67b6;&#x6784;&#x4e0e;&#x5e94;&#x7528;&#x573a;&#x666f;&#x8bf4;&#x660e;</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="emiyaoj-cloud-技术架构与应用场景说明">EmiyaOJ-Cloud 技术架构与应用场景说明</h1>
+<blockquote>
+<p>文档目标：系统化说明本项目使用了哪些技术、分别解决什么问题、在代码中的落点在哪、对应哪些业务场景。</p>
+<p>适用读者：项目成员、答辩评审、面试官、二次开发者。</p>
+</blockquote>
+<hr>
+<h2 id="1-项目总体定位">1. 项目总体定位</h2>
+<p><code>EmiyaOJ-Cloud</code> 是一个基于 <strong>Spring Cloud Alibaba</strong> 的在线判题微服务系统，核心业务覆盖：</p>
+<ul>
+<li>用户认证与权限管理（Auth）</li>
+<li>题目、测试用例、语言配置管理（Problem）</li>
+<li>提交与异步判题（Judge + Go-Judge）</li>
+<li>博客社区（Blog）</li>
+<li>AI 编程助手（Chat）</li>
+<li>统一接入与鉴权转发（Gateway）</li>
+</ul>
+<p>系统采用“网关统一入口 + 业务服务解耦 + Nacos 服务治理 + Redis 状态加速 + MySQL 持久化”的典型云原生后端架构。</p>
+<hr>
+<h2 id="2-微服务拆分与模块结构">2. 微服务拆分与模块结构</h2>
+<h2 id="21-顶层模块">2.1 顶层模块</h2>
+<p>根工程（<code>pom.xml</code>）定义了以下子模块：</p>
+<ul>
+<li><code>EmiyaOJ-Common</code>：公共能力（响应体、异常、JWT工具、Feign透传等）</li>
+<li><code>EmiyaOJ-Gateway</code>：网关服务</li>
+<li><code>EmiyaOJ-Auth</code>：认证域（<code>auth-dto / auth-api / auth-service</code>）</li>
+<li><code>EmiyaOJ-Problem</code>：题目域（<code>problem-dto / problem-api / problem-service</code>）</li>
+<li><code>EmiyaOJ-Judge</code>：判题域（<code>judge-dto / judge-api / judge-service</code>）</li>
+<li><code>EmiyaOJ-Blog</code>：博客域（<code>blog-dto / blog-api / blog-service</code>）</li>
+<li><code>EmiyaOJ-Chat</code>：AI 聊天域（<code>chat-dto / chat-api / chat-service</code>）</li>
+</ul>
+<h2 id="22-设计价值">2.2 设计价值</h2>
+<p>这种拆分方式带来以下收益：</p>
+<ol>
+<li><strong>边界清晰</strong>：每个业务域独立部署、独立演进。</li>
+<li><strong>依赖可控</strong>：通过 <code>*-api</code> 和 <code>*-dto</code> 层暴露稳定契约。</li>
+<li><strong>复用统一</strong>：公共工具和拦截逻辑下沉到 <code>EmiyaOJ-Common</code>。</li>
+<li><strong>便于扩展</strong>：后续新增如通知服务、榜单服务时，几乎可平移当前模式。</li>
+</ol>
+<hr>
+<h2 id="3-技术栈全景">3. 技术栈全景</h2>
+<h2 id="31-基础框架">3.1 基础框架</h2>
+<ul>
+<li><strong>Java 21</strong></li>
+<li><strong>Spring Boot 3.5.x</strong></li>
+<li><strong>Spring Cloud 2025.x</strong></li>
+<li><strong>Spring Cloud Alibaba 2025.x</strong></li>
+<li><strong>Maven 多模块构建</strong></li>
+</ul>
+<h2 id="32-核心中间件">3.2 核心中间件</h2>
+<ul>
+<li><strong>Nacos</strong>：服务注册发现 + 配置中心</li>
+<li><strong>MySQL 8.0</strong>：业务持久化</li>
+<li><strong>Redis 7</strong>：Token 白名单、缓存加速</li>
+<li><strong>Gateway</strong>：统一入口、路由、网关层鉴权</li>
+<li><strong>Go-Judge</strong>：代码编译/运行沙箱</li>
+</ul>
+<h2 id="33-业务开发技术">3.3 业务开发技术</h2>
+<ul>
+<li><strong>MyBatis-Plus</strong>：ORM、分页、逻辑删除</li>
+<li><strong>OpenFeign + LoadBalancer</strong>：服务间调用</li>
+<li><strong>Spring Security</strong>：服务内权限控制（Auth）</li>
+<li><strong>JJWT</strong>：JWT 生成与解析</li>
+<li><strong>SpringDoc OpenAPI</strong>：接口文档</li>
+<li><strong>WebClient / RestTemplate</strong>：外部 HTTP 调用</li>
+<li><strong>@Async</strong>：异步判题</li>
+</ul>
+<hr>
+<h2 id="4-关键技术与应用场景重点">4. 关键技术与应用场景（重点）</h2>
+<blockquote>
+<p>本节重点回答：用了什么技术、为什么用、在哪用、解决了什么业务问题。</p>
+</blockquote>
+<h2 id="41-微服务架构microservices">4.1 微服务架构（Microservices）</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li>根模块聚合管理（<code>pom.xml</code>）</li>
+<li>各服务独立启动类：
+<ul>
+<li><code>AuthApplication</code></li>
+<li><code>ProblemApplication</code></li>
+<li><code>JudgeApplication</code></li>
+<li><code>BlogApplication</code></li>
+<li><code>ChatApplication</code></li>
+<li><code>GatewayApplication</code></li>
+</ul>
+</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ul>
+<li>用户登录高峰不影响判题任务执行。</li>
+<li>判题服务可独立扩容，避免博客/聊天业务挤占判题资源。</li>
+<li>AI 聊天服务（外部 API 依赖强）可单独治理超时/限流策略。</li>
+</ul>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>提升系统弹性与可维护性。</li>
+<li>支持按域分工开发、并行迭代。</li>
+</ul>
+<hr>
+<h2 id="42-nacos服务注册与配置中心">4.2 Nacos：服务注册与配置中心</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li>各服务 <code>bootstrap.yaml</code>：
+<ul>
+<li><code>spring.cloud.nacos.discovery</code></li>
+<li><code>spring.cloud.nacos.config</code></li>
+</ul>
+</li>
+<li>启动类普遍开启 <code>@EnableDiscoveryClient</code></li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ol>
+<li><strong>服务发现</strong>：Gateway 按服务名路由到 <code>auth-service/problem-service/judge-service...</code></li>
+<li><strong>环境配置统一</strong>：开发/测试/生产环境可切换不同配置集或命名空间。</li>
+<li><strong>动态治理基础</strong>：服务地址变化不需要硬编码。</li>
+</ol>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>避免“IP+端口硬编码”导致的运维脆弱性。</li>
+<li>支撑微服务弹性伸缩与灰度基础能力。</li>
+</ul>
+<hr>
+<h2 id="43-gateway统一入口与网关鉴权">4.3 Gateway：统一入口与网关鉴权</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li><code>EmiyaOJ-Gateway/src/main/resources/application.yaml</code>（路由规则）</li>
+<li><code>AuthGlobalFilter</code>（全局认证过滤器）</li>
+<li><code>GatewayWhitelistProperties</code>（白名单）</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ol>
+<li>对外单入口（<code>8080</code>），统一路由到各微服务。</li>
+<li>在网关层完成 JWT 校验，减少下游重复校验压力。</li>
+<li>将身份上下文透传给下游：
+<ul>
+<li><code>X-User-Id</code></li>
+<li><code>X-User-Name</code></li>
+<li><code>X-User-Roles</code></li>
+</ul>
+</li>
+</ol>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>安全策略收敛到入口层。</li>
+<li>下游服务专注业务逻辑，无需重复解析 Token。</li>
+</ul>
+<hr>
+<h2 id="44-jwt-登录校验你提到的重点">4.4 JWT 登录校验（你提到的重点）</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li><code>AuthService</code>：登录成功后生成 JWT</li>
+<li><code>JwtUtil</code>：统一 JWT 创建/解析</li>
+<li><code>AuthGlobalFilter</code>：网关层解析 JWT</li>
+<li><code>JwtTokenOncePerRequestFilter</code>：Auth 服务内补充校验</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<h3 id="场景-a用户登录">场景 A：用户登录</h3>
+<ol>
+<li>用户调用 <code>/auth/login</code></li>
+<li><code>AuthService</code> 认证成功后生成 JWT（含 <code>userId/username/permissions</code>）</li>
+<li>返回 token 给前端</li>
+</ol>
+<h3 id="场景-b访问业务接口">场景 B：访问业务接口</h3>
+<ol>
+<li>前端携带 <code>Authorization: Bearer &lt;token&gt;</code></li>
+<li>网关 <code>AuthGlobalFilter</code> 验签并校验 Redis 白名单</li>
+<li>网关注入用户上下文头后转发</li>
+<li>下游服务读取 <code>X-User-Id</code> 执行业务</li>
+</ol>
+<h3 id="场景-c用户登出">场景 C：用户登出</h3>
+<ol>
+<li>调用 <code>/auth/logout</code></li>
+<li>删除 Redis 中 <code>token_{userId}</code></li>
+<li>Token 失效（即使未到 JWT 自然过期时间）</li>
+</ol>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>兼顾“无状态 JWT”与“可主动失效”的需求。</li>
+<li>支持网关层统一认证，提高系统一致性。</li>
+</ul>
+<hr>
+<h2 id="45-redistoken-白名单与会话增强">4.5 Redis：Token 白名单与会话增强</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li><code>AuthService</code> 写入/删除 <code>token_{userId}</code></li>
+<li><code>AuthGlobalFilter</code> 与 <code>JwtTokenOncePerRequestFilter</code> 校验 key 是否存在，并刷新 TTL</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ol>
+<li>登录态校验</li>
+<li>登出立即失效</li>
+<li>滑动续期（活跃用户自动延长有效期）</li>
+</ol>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>补齐 JWT 天生“难撤销”的痛点。</li>
+<li>登录态可控，安全性更高。</li>
+</ul>
+<hr>
+<h2 id="46-openfeign--loadbalancer服务间调用">4.6 OpenFeign + LoadBalancer：服务间调用</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li><code>ProblemFeignClient</code>（Judge -&gt; Problem）</li>
+<li><code>SubmissionFeignClient</code>、<code>AuthFeignClient</code> 等</li>
+<li><code>JudgeApplication</code> 开启 <code>@EnableFeignClients</code></li>
+<li><code>FeignConfig</code>（透传用户头信息）</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ol>
+<li>判题前，Judge 服务查询 Problem 服务：
+<ul>
+<li>题目详情</li>
+<li>测试用例</li>
+<li>语言配置</li>
+</ul>
+</li>
+<li>通过服务名调用而非固定地址，配合 Nacos 动态发现实例。</li>
+</ol>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>跨服务调用编程模型统一、开发效率高。</li>
+<li>支持实例级负载均衡，增强稳定性。</li>
+</ul>
+<hr>
+<h2 id="47-mybatis-plus--mysql核心业务持久化">4.7 MyBatis-Plus + MySQL：核心业务持久化</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li>各服务 <code>application.yaml</code> 中 datasource 配置</li>
+<li>mapper + service 组合（如 <code>SubmissionMapper</code>, <code>ProblemService</code>）</li>
+<li>逻辑删除字段（<code>deleted</code>）与分页查询</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ul>
+<li>用户/角色/权限管理</li>
+<li>题目、标签、测试用例管理</li>
+<li>提交记录与判题状态追踪</li>
+<li>博客、评论、收藏管理</li>
+</ul>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>兼顾开发效率与 SQL 可控性。</li>
+<li>逻辑删除避免数据误删带来的不可逆风险。</li>
+</ul>
+<hr>
+<h2 id="48-异步判题async">4.8 异步判题（@Async）</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li><code>JudgeApplication</code> 开启 <code>@EnableAsync</code></li>
+<li><code>JudgeExecutor#executeJudgeAsync()</code> 使用 <code>@Async</code></li>
+<li><code>SubmissionService</code> 同步创建记录后触发异步执行</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ol>
+<li>用户提交代码后接口立即返回，不阻塞前端。</li>
+<li>后台异步执行编译和多测试用例运行。</li>
+<li>结果写回数据库，前端通过提交记录接口轮询。</li>
+</ol>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>显著优化用户体验（低响应延迟）。</li>
+<li>避免长耗时判题占用 Web 线程。</li>
+</ul>
+<hr>
+<h2 id="49-go-judge-沙箱执行">4.9 Go-Judge 沙箱执行</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li><code>GoJudgeService</code>（HTTP 调用 <code>/run</code>、<code>/file/{id}</code>）</li>
+<li><code>JudgeExecutor</code> 负责编译/运行流程编排</li>
+<li><code>docker-compose.yml</code> 中 <code>go-judge</code> 容器</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ul>
+<li>C/C++/Java/Go/Python 多语言编译与执行</li>
+<li>逐测试用例运行，统计：
+<ul>
+<li>时间</li>
+<li>内存</li>
+<li>通过率</li>
+</ul>
+</li>
+<li>根据运行状态映射 OJ 结果：AC/WA/TLE/MLE/RE/CE/SE/PA 等</li>
+</ul>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>判题执行环境与业务服务解耦，安全隔离更好。</li>
+<li>易于替换/升级沙箱实现。</li>
+</ul>
+<hr>
+<h2 id="410-spring-security服务内权限控制">4.10 Spring Security（服务内权限控制）</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li><code>SecurityConfig</code></li>
+<li><code>JwtTokenOncePerRequestFilter</code></li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ul>
+<li>Auth 服务内部接口保护（例如 <code>/auth/logout</code>）。</li>
+<li>白名单放行登录与文档接口。</li>
+<li>统一 401/403 JSON 返回。</li>
+</ul>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>在网关鉴权之外，服务层仍有安全兜底。</li>
+</ul>
+<hr>
+<h2 id="411-openapiswagger-文档">4.11 OpenAPI/Swagger 文档</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li>各服务 <code>springdoc</code> 配置</li>
+<li>Controller 层 <code>@Tag</code>、<code>@Operation</code></li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ul>
+<li>后前端协作联调</li>
+<li>接口验收与测试</li>
+<li>快速定位接口契约变更</li>
+</ul>
+<p><strong>业务价值</strong></p>
+<ul>
+<li>降低沟通成本，提升开发协同效率。</li>
+</ul>
+<hr>
+<h2 id="412-docker-compose-本地一体化环境">4.12 Docker Compose 本地一体化环境</h2>
+<p><strong>技术落点</strong></p>
+<ul>
+<li>根目录 <code>docker-compose.yml</code></li>
+</ul>
+<p><strong>编排内容</strong></p>
+<ul>
+<li>基础设施：MySQL、Redis、Nacos</li>
+<li>业务服务：Gateway、Auth、Problem、Judge、Blog、Chat</li>
+<li>判题沙箱：Go-Judge</li>
+</ul>
+<p><strong>应用场景</strong></p>
+<ul>
+<li>本地快速拉起完整链路</li>
+<li>演示环境统一</li>
+<li>新成员零散依赖最小化</li>
+</ul>
+<hr>
+<h2 id="5-关键业务链路与技术协同">5. 关键业务链路与技术协同</h2>
+<h2 id="51-链路一登录鉴权链路">5.1 链路一：登录鉴权链路</h2>
+<ol>
+<li>用户调用 <code>auth-service</code> 登录</li>
+<li><code>AuthService</code> 使用 Spring Security 完成认证</li>
+<li>通过 <code>JwtUtil</code> 生成 Token</li>
+<li>Redis 写入 <code>token_{userId}</code></li>
+<li>后续业务请求经 Gateway 校验 JWT + Redis 白名单</li>
+<li>Gateway 透传身份头部至下游服务</li>
+</ol>
+<p><strong>体现技术协同</strong>：Spring Security + JWT + Redis + Gateway</p>
+<h2 id="52-链路二提交判题链路">5.2 链路二：提交判题链路</h2>
+<ol>
+<li>用户请求 <code>/judge/submit</code></li>
+<li>Gateway 透传用户身份</li>
+<li>Judge 服务通过 Feign 调 Problem 服务获取题目/语言/用例</li>
+<li>Submission 记录先落库（Pending）</li>
+<li>异步线程调用 Go-Judge 编译/执行</li>
+<li>汇总结果并更新 Submission 状态</li>
+</ol>
+<p><strong>体现技术协同</strong>：Gateway + Feign + MyBatis + Async + Go-Judge</p>
+<h2 id="53-链路三ai-助手链路">5.3 链路三：AI 助手链路</h2>
+<ol>
+<li>用户调用 <code>/client/chat/send</code></li>
+<li>Chat 服务封装历史消息与系统提示词</li>
+<li>调用 DashScope（Qwen）模型接口</li>
+<li>将模型回复封装后返回</li>
+</ol>
+<p><strong>体现技术协同</strong>：REST 调用 + 模型提示词工程 + 微服务封装</p>
+<hr>
+<h2 id="6-数据与领域模型概览">6. 数据与领域模型概览</h2>
+<p>核心表按业务域分组如下：</p>
+<ul>
+<li><strong>Auth 域</strong>：<code>user</code>, <code>role</code>, <code>permission</code>, <code>user_role</code>, <code>role_permission</code></li>
+<li><strong>Problem 域</strong>：<code>problem</code>, <code>tag</code>, <code>problem_tag</code>, <code>test_case</code>, <code>language</code></li>
+<li><strong>Judge 域</strong>：<code>submission</code>, <code>submission_result</code></li>
+<li><strong>Blog 域</strong>：<code>blog</code>, <code>blog_comment</code>, <code>blog_star</code>, <code>blog_tag</code>, <code>blog_tag_association</code>, <code>user_blog</code></li>
+<li><strong>平台辅助</strong>：<code>operation_log</code></li>
+</ul>
+<p>设计特点：</p>
+<ul>
+<li>多数业务表具备时间字段，便于审计与追踪。</li>
+<li>通过中间表实现多对多关系（用户-角色、角色-权限、题目-标签）。</li>
+<li>Blog 模块使用触发器维护 <code>user_blog</code> 聚合统计。</li>
+</ul>
+<hr>
+<h2 id="7-安全与稳定性设计">7. 安全与稳定性设计</h2>
+<h2 id="71-安全策略">7.1 安全策略</h2>
+<ol>
+<li><strong>入口鉴权</strong>：网关优先校验 JWT。</li>
+<li><strong>会话可撤销</strong>：Redis 白名单机制支持登出立即失效。</li>
+<li><strong>服务兜底</strong>：Auth 服务自身仍保留 Security Filter 校验。</li>
+<li><strong>权限透传</strong>：<code>X-User-Roles</code> 可用于下游细粒度授权扩展。</li>
+</ol>
+<h2 id="72-稳定性策略">7.2 稳定性策略</h2>
+<ol>
+<li><strong>服务注册发现</strong>：通过 Nacos 避免硬编码地址。</li>
+<li><strong>异步解耦</strong>：判题重任务异步执行。</li>
+<li><strong>状态可观测</strong>：Submission 全生命周期状态字段可追踪。</li>
+<li><strong>容器化部署</strong>：统一环境降低“本地可跑/线上失败”概率。</li>
+</ol>
+<hr>
+<h2 id="8-项目当前架构优势与可优化方向">8. 项目当前架构优势与可优化方向</h2>
+<h2 id="81-已具备优势">8.1 已具备优势</h2>
+<ul>
+<li>微服务边界清晰，模块职责明确</li>
+<li>网关层统一鉴权，减少重复逻辑</li>
+<li>判题链路异步化，用户体验较好</li>
+<li>DTO/API 分层规范，跨服务契约明确</li>
+<li>Docker Compose 提供一键化环境</li>
+</ul>
+<h2 id="82-可继续增强建议">8.2 可继续增强（建议）</h2>
+<ol>
+<li><strong>链路追踪</strong>：引入 SkyWalking / OpenTelemetry。</li>
+<li><strong>熔断限流</strong>：在 Gateway 与 Feign 层补充 Resilience4j。</li>
+<li><strong>任务队列化</strong>：判题异步可升级为 MQ（RabbitMQ/Kafka）解耦。</li>
+<li><strong>统一配置治理</strong>：Nacos 配置分组进一步标准化（dev/test/prod）。</li>
+<li><strong>审计与告警</strong>：对登录失败、判题异常增加指标与告警。</li>
+</ol>
+<hr>
+<h2 id="9-结论面向答辩汇报">9. 结论（面向答辩/汇报）</h2>
+<p><code>EmiyaOJ-Cloud</code> 的技术路线可以概括为：</p>
+<ul>
+<li>用 <strong>微服务 + Nacos</strong> 实现可扩展的服务治理基础；</li>
+<li>用 <strong>Gateway + JWT + Redis</strong> 构建统一认证鉴权链路；</li>
+<li>用 <strong>Feign + MyBatis-Plus</strong> 实现高效的服务协作与数据持久化；</li>
+<li>用 <strong>@Async + Go-Judge</strong> 支撑判题场景中的高耗时任务；</li>
+<li>用 <strong>Docker Compose</strong> 实现研发环境的一致化与可复现性。</li>
+</ul>
+<p>这套技术组合与 OJ 系统的业务形态高度匹配，既满足当前功能落地，也为后续扩展（竞赛、排行榜、消息通知、分布式任务）预留了足够空间。</p>
+
+            
+            
+        </body>
+        </html>

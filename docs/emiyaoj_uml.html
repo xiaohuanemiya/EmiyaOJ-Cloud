@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmiyaOJ-Cloud UML2.0 需求建模</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', sans-serif; background: #f3f5f8; color: #333; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 22px; }
+    h1 { text-align: center; color: #1677ff; font-size: 30px; margin: 24px 0 30px; }
+    h2 { color: #eb2f96; font-size: 22px; margin: 18px 0 14px; border-left: 4px solid #eb2f96; padding-left: 12px; }
+    h3 { color: #1677ff; font-size: 18px; margin: 12px 0 8px; }
+    .section { background: #fff; border-radius: 14px; padding: 26px; margin-bottom: 24px; box-shadow: 0 3px 14px rgba(0,0,0,.08); }
+    .diagram-wrap { overflow-x: auto; text-align: center; margin-top: 10px; }
+    .diagram-wrap svg { display: inline-block; }
+    .note { margin-top: 12px; background: #fffbe6; border-left: 4px solid #faad14; padding: 12px 14px; border-radius: 4px; font-size: 14px; color: #555; line-height: 1.75; }
+    .spec-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .spec-table th, .spec-table td { border: 1px solid #d9d9d9; padding: 10px 12px; vertical-align: top; line-height: 1.75; }
+    .spec-table th { width: 150px; background: #e6f4ff; color: #1677ff; text-align: left; white-space: nowrap; }
+    .spec-table ol { margin: 0; padding-left: 20px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>⚔️ EmiyaOJ-Cloud — UML2.0 需求建模</h1>
+
+  <div class="section">
+    <h2>一、系统用例图（Use Case Diagram）</h2>
+    <div class="diagram-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 960" width="1320" height="960">
+        <defs>
+          <style>
+            .sys { fill:#f9fcff; stroke:#1677ff; stroke-width:2; }
+            .uc { fill:#e6f4ff; stroke:#1677ff; stroke-width:1.6; }
+            .uc2 { fill:#f6ffed; stroke:#52c41a; stroke-width:1.6; }
+            .txt { font-family:'Microsoft YaHei'; font-size:13px; fill:#333; text-anchor:middle; dominant-baseline:central; }
+            .actor { font-family:'Microsoft YaHei'; font-size:13px; fill:#333; text-anchor:middle; }
+            .line { stroke:#555; stroke-width:1.4; fill:none; }
+            .dash { stroke:#888; stroke-width:1.2; stroke-dasharray:6 4; fill:none; }
+            .label { font-family:'Microsoft YaHei'; font-size:11px; fill:#888; text-anchor:middle; }
+            .title { font-family:'Microsoft YaHei'; font-size:18px; fill:#1677ff; font-weight:bold; text-anchor:middle; }
+          </style>
+          <marker id="arr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0,10 3.5,0 7" fill="#888"/>
+          </marker>
+        </defs>
+
+        <rect x="220" y="28" width="860" height="900" rx="16" class="sys"/>
+        <text x="650" y="58" class="title">EmiyaOJ-Cloud 微服务系统</text>
+
+        <!-- Actors -->
+        <g transform="translate(90,160)">
+          <circle cx="0" cy="-20" r="14" fill="none" stroke="#555" stroke-width="2"/>
+          <line x1="0" y1="-6" x2="0" y2="24" stroke="#555" stroke-width="2"/>
+          <line x1="-18" y1="6" x2="18" y2="6" stroke="#555" stroke-width="2"/>
+          <line x1="0" y1="24" x2="-14" y2="44" stroke="#555" stroke-width="2"/>
+          <line x1="0" y1="24" x2="14" y2="44" stroke="#555" stroke-width="2"/>
+          <text x="0" y="63" class="actor">游客</text>
+        </g>
+
+        <g transform="translate(90,420)">
+          <circle cx="0" cy="-20" r="14" fill="none" stroke="#eb2f96" stroke-width="2"/>
+          <line x1="0" y1="-6" x2="0" y2="24" stroke="#eb2f96" stroke-width="2"/>
+          <line x1="-18" y1="6" x2="18" y2="6" stroke="#eb2f96" stroke-width="2"/>
+          <line x1="0" y1="24" x2="-14" y2="44" stroke="#eb2f96" stroke-width="2"/>
+          <line x1="0" y1="24" x2="14" y2="44" stroke="#eb2f96" stroke-width="2"/>
+          <text x="0" y="63" class="actor" fill="#eb2f96">普通用户</text>
+        </g>
+
+        <g transform="translate(90,740)">
+          <circle cx="0" cy="-20" r="14" fill="none" stroke="#fa8c16" stroke-width="2"/>
+          <line x1="0" y1="-6" x2="0" y2="24" stroke="#fa8c16" stroke-width="2"/>
+          <line x1="-18" y1="6" x2="18" y2="6" stroke="#fa8c16" stroke-width="2"/>
+          <line x1="0" y1="24" x2="-14" y2="44" stroke="#fa8c16" stroke-width="2"/>
+          <line x1="0" y1="24" x2="14" y2="44" stroke="#fa8c16" stroke-width="2"/>
+          <text x="0" y="63" class="actor" fill="#fa8c16">题目管理员</text>
+        </g>
+
+        <g transform="translate(1230,240)">
+          <circle cx="0" cy="-20" r="14" fill="none" stroke="#52c41a" stroke-width="2"/>
+          <line x1="0" y1="-6" x2="0" y2="24" stroke="#52c41a" stroke-width="2"/>
+          <line x1="-18" y1="6" x2="18" y2="6" stroke="#52c41a" stroke-width="2"/>
+          <line x1="0" y1="24" x2="-14" y2="44" stroke="#52c41a" stroke-width="2"/>
+          <line x1="0" y1="24" x2="14" y2="44" stroke="#52c41a" stroke-width="2"/>
+          <text x="0" y="63" class="actor" fill="#52c41a">系统管理员</text>
+        </g>
+
+        <g transform="translate(1230,520)">
+          <rect x="-56" y="-38" width="112" height="54" rx="8" fill="#f6ffed" stroke="#52c41a" stroke-width="1.5"/>
+          <text x="0" y="-18" class="actor" fill="#52c41a" font-size="10">&lt;&lt;External&gt;&gt;</text>
+          <text x="0" y="0" class="actor" fill="#52c41a">Go-Judge</text>
+        </g>
+
+        <g transform="translate(1230,700)">
+          <rect x="-72" y="-38" width="144" height="54" rx="8" fill="#fff7e6" stroke="#faad14" stroke-width="1.5"/>
+          <text x="0" y="-18" class="actor" fill="#faad14" font-size="10">&lt;&lt;External&gt;&gt;</text>
+          <text x="0" y="0" class="actor" fill="#faad14">DashScope AI</text>
+        </g>
+
+        <!-- Use cases -->
+        <ellipse cx="360" cy="120" rx="90" ry="28" class="uc"/><text x="360" y="120" class="txt">浏览题目列表</text>
+        <ellipse cx="580" cy="120" rx="90" ry="28" class="uc"/><text x="580" y="120" class="txt">查看题目详情</text>
+        <ellipse cx="800" cy="120" rx="90" ry="28" class="uc"/><text x="800" y="120" class="txt">用户登录/登出</text>
+
+        <ellipse cx="360" cy="235" rx="90" ry="28" class="uc"/><text x="360" y="235" class="txt">提交代码判题</text>
+        <ellipse cx="580" cy="235" rx="90" ry="28" class="uc"/><text x="580" y="235" class="txt">查看提交记录</text>
+        <ellipse cx="800" cy="235" rx="90" ry="28" class="uc"/><text x="800" y="235" class="txt">查看个人提交</text>
+
+        <ellipse cx="360" cy="350" rx="90" ry="28" class="uc"/><text x="360" y="350" class="txt">发布博客</text>
+        <ellipse cx="580" cy="350" rx="90" ry="28" class="uc"/><text x="580" y="350" class="txt">评论博客</text>
+        <ellipse cx="800" cy="350" rx="90" ry="28" class="uc"/><text x="800" y="350" class="txt">收藏/取消收藏博客</text>
+
+        <ellipse cx="360" cy="465" rx="90" ry="28" class="uc"/><text x="360" y="465" class="txt">AI 编程问答</text>
+        <ellipse cx="580" cy="465" rx="90" ry="28" class="uc"/><text x="580" y="465" class="txt">分页检索博客</text>
+        <ellipse cx="800" cy="465" rx="90" ry="28" class="uc"/><text x="800" y="465" class="txt">查询语言列表</text>
+
+        <ellipse cx="360" cy="620" rx="96" ry="28" class="uc2"/><text x="360" y="620" class="txt">题目管理(增删改查)</text>
+        <ellipse cx="580" cy="620" rx="96" ry="28" class="uc2"/><text x="580" y="620" class="txt">测试用例管理</text>
+        <ellipse cx="800" cy="620" rx="96" ry="28" class="uc2"/><text x="800" y="620" class="txt">编程语言管理</text>
+
+        <ellipse cx="360" cy="760" rx="96" ry="28" class="uc2"/><text x="360" y="760" class="txt">用户管理</text>
+        <ellipse cx="580" cy="760" rx="96" ry="28" class="uc2"/><text x="580" y="760" class="txt">角色管理</text>
+        <ellipse cx="800" cy="760" rx="96" ry="28" class="uc2"/><text x="800" y="760" class="txt">权限管理</text>
+
+        <ellipse cx="580" cy="860" rx="110" ry="28" class="uc"/><text x="580" y="860" class="txt">网关鉴权与请求转发</text>
+
+        <!-- actor relations -->
+        <line x1="108" y1="160" x2="270" y2="120" class="line"/>
+        <line x1="108" y1="163" x2="490" y2="120" class="line"/>
+        <line x1="108" y1="166" x2="710" y2="120" class="line"/>
+
+        <line x1="108" y1="405" x2="270" y2="235" class="line"/>
+        <line x1="108" y1="410" x2="490" y2="235" class="line"/>
+        <line x1="108" y1="415" x2="710" y2="235" class="line"/>
+        <line x1="108" y1="420" x2="270" y2="350" class="line"/>
+        <line x1="108" y1="424" x2="490" y2="350" class="line"/>
+        <line x1="108" y1="428" x2="710" y2="350" class="line"/>
+        <line x1="108" y1="430" x2="270" y2="465" class="line"/>
+        <line x1="108" y1="432" x2="490" y2="465" class="line"/>
+
+        <line x1="108" y1="735" x2="264" y2="620" class="line"/>
+        <line x1="108" y1="738" x2="484" y2="620" class="line"/>
+        <line x1="108" y1="742" x2="704" y2="620" class="line"/>
+
+        <line x1="1210" y1="240" x2="896" y2="760" class="line"/>
+        <line x1="1210" y1="238" x2="896" y2="620" class="line"/>
+
+        <line x1="1174" y1="520" x2="450" y2="235" class="line"/>
+        <line x1="1158" y1="700" x2="450" y2="465" class="line"/>
+
+        <!-- include/extend -->
+        <line x1="450" y1="235" x2="706" y2="860" class="dash" marker-end="url(#arr)"/>
+        <text x="570" y="560" class="label">&lt;&lt;include&gt;&gt;</text>
+
+        <line x1="360" y1="236" x2="710" y2="236" class="dash" marker-end="url(#arr)"/>
+        <text x="535" y="224" class="label">&lt;&lt;include&gt;&gt; 查询语言信息</text>
+
+        <line x1="360" y1="250" x2="580" y2="835" class="dash" marker-end="url(#arr)"/>
+        <text x="470" y="540" class="label">&lt;&lt;include&gt;&gt; 持久化提交</text>
+
+        <line x1="580" y1="760" x2="360" y2="760" class="dash" marker-end="url(#arr)"/>
+        <text x="470" y="747" class="label">&lt;&lt;include&gt;&gt; 分配角色</text>
+
+        <!-- Generalization -->
+        <line x1="90" y1="390" x2="90" y2="230" class="line"/>
+        <polygon points="90,223 82,238 98,238" fill="#fff" stroke="#555" stroke-width="1.2"/>
+        <text x="64" y="312" class="label" transform="rotate(-90,64,312)">泛化</text>
+
+        <line x1="90" y1="710" x2="90" y2="530" class="line"/>
+        <polygon points="90,523 82,538 98,538" fill="#fff" stroke="#555" stroke-width="1.2"/>
+        <text x="64" y="620" class="label" transform="rotate(-90,64,620)">泛化</text>
+      </svg>
+    </div>
+    <div class="note">
+      <strong>建模说明：</strong>系统按真实仓库拆分为 Gateway + Auth + Problem + Judge + Blog + Chat 六类核心能力。普通用户在题目、判题、博客、AI 辅助四条主线上交互；题目管理员和系统管理员承担治理职责；Go-Judge 与 DashScope 分别作为外部判题执行器与大模型服务参与扩展流程。
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>二、核心用例规约：提交代码判题（UC-JUDGE-001）</h2>
+    <table class="spec-table">
+      <tr><th>用例名称</th><td>提交代码判题</td></tr>
+      <tr><th>主要参与者</th><td>普通用户（主）、网关、判题服务、题目服务、Go-Judge（辅）</td></tr>
+      <tr><th>触发条件</th><td>用户在题目详情页点击“提交代码”</td></tr>
+      <tr><th>前置条件</th><td><ol><li>用户已登录且 Token 有效（Redis 白名单存在）</li><li>题目存在且可访问</li><li>语言已启用</li></ol></td></tr>
+      <tr><th>后置条件</th><td><ol><li>生成 submission 记录</li><li>异步完成判题并更新状态、得分、通过率</li><li>用户可在提交记录中查询结果</li></ol></td></tr>
+      <tr><th>基本事件流</th><td>
+        <ol>
+          <li>用户提交 <code>problemId + languageId + code</code></li>
+          <li>网关解析 JWT，注入 <code>X-User-Id</code> 后转发至 <code>/judge/submit</code></li>
+          <li>判题服务调用 Problem 服务校验题目与语言</li>
+          <li>创建 <code>submission(status=0)</code>，返回“已提交”</li>
+          <li>异步任务将状态置为 <code>Judging</code>，加载测试用例与限制</li>
+          <li>按语言选择编译/解释执行策略，循环运行测试用例</li>
+          <li>汇总时间、内存、通过率，写回最终状态（AC/WA/TLE/MLE/RE/CE/PA/SE）</li>
+        </ol>
+      </td></tr>
+      <tr><th>备选流</th><td>
+        <ol>
+          <li><strong>A1 编译失败：</strong>状态更新为 CE，写入 <code>compileMessage</code></li>
+          <li><strong>A2 某用例运行异常：</strong>状态更新为 RE/TLE/MLE/OLE</li>
+          <li><strong>A3 题目或语言不存在：</strong>同步返回 400，不创建记录</li>
+          <li><strong>A4 测试用例缺失：</strong>状态更新为 SE，提示配置异常</li>
+        </ol>
+      </td></tr>
+      <tr><th>异常流</th><td>
+        <ol>
+          <li>Token 无效/过期：网关直接返回 401</li>
+          <li>Go-Judge 无响应：判题服务捕获异常并标记 SE</li>
+          <li>数据库写入失败：事务回滚，返回失败消息</li>
+        </ol>
+      </td></tr>
+      <tr><th>业务规则</th><td>
+        <ol>
+          <li>提交记录采用逻辑删除字段，默认只查未删除数据</li>
+          <li>Java/Python 在运行阶段给予额外资源倍率</li>
+          <li>WA 且存在部分通过时，状态可升级为 PA（部分通过）</li>
+        </ol>
+      </td></tr>
+      <tr><th>非功能要求</th><td>
+        <ol>
+          <li>提交接口应快速返回（异步判题）</li>
+          <li>每次判题必须清理 Go-Judge 缓存文件</li>
+          <li>服务间调用经 Nacos + Feign + LoadBalancer 发现与转发</li>
+        </ol>
+      </td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>三、活动图：提交代码判题（Activity Diagram）</h2>
+    <div class="diagram-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 1360" width="980" height="1360">
+        <defs>
+          <style>
+            .act { fill:#e6f4ff; stroke:#1677ff; stroke-width:1.5; rx:10; }
+            .act2 { fill:#fff7e6; stroke:#fa8c16; stroke-width:1.5; rx:10; }
+            .act3 { fill:#f6ffed; stroke:#52c41a; stroke-width:1.5; rx:10; }
+            .text { font-family:'Microsoft YaHei'; font-size:13px; fill:#333; text-anchor:middle; dominant-baseline:central; }
+            .flow { stroke:#555; stroke-width:1.5; fill:none; marker-end:url(#arr2); }
+            .sw { stroke:#d9d9d9; stroke-width:1; stroke-dasharray:8 4; }
+            .lbl { font-family:'Microsoft YaHei'; font-size:11px; fill:#888; }
+          </style>
+          <marker id="arr2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0,8 3,0 6" fill="#555"/>
+          </marker>
+        </defs>
+
+        <rect x="20" y="20" width="940" height="1310" fill="none" stroke="#d9d9d9" rx="8"/>
+        <line x1="210" y1="20" x2="210" y2="1330" class="sw"/>
+        <line x1="400" y1="20" x2="400" y2="1330" class="sw"/>
+        <line x1="610" y1="20" x2="610" y2="1330" class="sw"/>
+        <line x1="790" y1="20" x2="790" y2="1330" class="sw"/>
+
+        <text x="115" y="50" class="text" fill="#1677ff">用户</text>
+        <text x="305" y="50" class="text" fill="#1677ff">Gateway</text>
+        <text x="505" y="50" class="text" fill="#1677ff">Judge Service</text>
+        <text x="700" y="50" class="text" fill="#1677ff">Problem Service</text>
+        <text x="875" y="50" class="text" fill="#1677ff">Go-Judge</text>
+        <line x1="20" y1="70" x2="960" y2="70" stroke="#d9d9d9"/>
+
+        <circle cx="115" cy="110" r="12" fill="#333"/>
+
+        <rect x="45" y="150" width="140" height="42" class="act"/><text x="115" y="171" class="text">填写代码并提交</text>
+        <line x1="115" y1="122" x2="115" y2="150" class="flow"/>
+
+        <rect x="240" y="150" width="130" height="42" class="act2"/><text x="305" y="171" class="text">解析JWT</text>
+        <line x1="185" y1="171" x2="240" y2="171" class="flow"/>
+
+        <polygon points="305,224 350,256 305,288 260,256" fill="#fff" stroke="#fa8c16" stroke-width="1.5"/>
+        <text x="305" y="257" class="text" font-size="11">Token有效?</text>
+        <line x1="305" y1="192" x2="305" y2="224" class="flow"/>
+
+        <rect x="240" y="305" width="130" height="42" class="act2" style="fill:#fff1f0;stroke:#ff4d4f"/>
+        <text x="305" y="326" class="text">返回401</text>
+        <line x1="305" y1="288" x2="305" y2="305" class="flow"/>
+        <text x="322" y="298" class="lbl">[否]</text>
+
+        <rect x="440" y="240" width="130" height="42" class="act"/><text x="505" y="261" class="text">创建提交记录</text>
+        <line x1="350" y1="256" x2="440" y2="261" class="flow"/>
+        <text x="370" y="246" class="lbl">[是]</text>
+
+        <rect x="640" y="170" width="120" height="42" class="act3"/><text x="700" y="191" class="text">校验题目</text>
+        <line x1="570" y1="251" x2="700" y2="251" stroke="#555" stroke-width="1.5"/>
+        <line x1="700" y1="251" x2="700" y2="212" class="flow"/>
+
+        <rect x="640" y="240" width="120" height="42" class="act3"/><text x="700" y="261" class="text">校验语言</text>
+        <line x1="700" y1="212" x2="700" y2="240" class="flow"/>
+
+        <rect x="440" y="320" width="130" height="42" class="act"/><text x="505" y="341" class="text">返回submissionId</text>
+        <line x1="700" y1="282" x2="700" y2="300" stroke="#555" stroke-width="1.5"/>
+        <line x1="700" y1="300" x2="505" y2="300" stroke="#555" stroke-width="1.5"/>
+        <line x1="505" y1="300" x2="505" y2="320" class="flow"/>
+
+        <rect x="440" y="395" width="130" height="42" class="act"/><text x="505" y="416" class="text">异步置为Judging</text>
+        <line x1="505" y1="362" x2="505" y2="395" class="flow"/>
+
+        <rect x="640" y="395" width="120" height="42" class="act3"/><text x="700" y="416" class="text">拉取测试用例</text>
+        <line x1="570" y1="416" x2="640" y2="416" class="flow"/>
+
+        <polygon points="505,490 555,522 505,554 455,522" fill="#fff" stroke="#fa8c16" stroke-width="1.5"/>
+        <text x="505" y="523" class="text" font-size="11">需要编译?</text>
+        <line x1="505" y1="437" x2="505" y2="490" class="flow"/>
+
+        <rect x="825" y="480" width="100" height="42" class="act3"/><text x="875" y="501" class="text">编译代码</text>
+        <line x1="555" y1="522" x2="825" y2="501" class="flow"/>
+        <text x="650" y="510" class="lbl">[是]</text>
+
+        <polygon points="875,550 915,578 875,606 835,578" fill="#fff" stroke="#52c41a" stroke-width="1.5"/>
+        <text x="875" y="579" class="text" font-size="11">编译成功?</text>
+        <line x1="875" y1="522" x2="875" y2="550" class="flow"/>
+
+        <rect x="440" y="575" width="130" height="42" class="act" style="fill:#fff1f0;stroke:#ff4d4f"/><text x="505" y="596" class="text">更新状态CE</text>
+        <line x1="835" y1="578" x2="570" y2="596" class="flow"/>
+        <text x="700" y="586" class="lbl">[否]</text>
+
+        <rect x="825" y="640" width="100" height="42" class="act3"/><text x="875" y="661" class="text">运行用例</text>
+        <line x1="505" y1="554" x2="875" y2="661" class="flow"/>
+        <text x="640" y="620" class="lbl">[否：解释型]</text>
+
+        <line x1="875" y1="606" x2="875" y2="640" class="flow"/>
+        <text x="892" y="624" class="lbl">[是]</text>
+
+        <polygon points="875,710 920,742 875,774 830,742" fill="#fff" stroke="#52c41a" stroke-width="1.5"/>
+        <text x="875" y="743" class="text" font-size="11">结果OK?</text>
+        <line x1="875" y1="682" x2="875" y2="710" class="flow"/>
+
+        <rect x="440" y="730" width="130" height="42" class="act" style="fill:#fff1f0;stroke:#ff4d4f"/><text x="505" y="751" class="text">记录RE/TLE/MLE</text>
+        <line x1="830" y1="742" x2="570" y2="751" class="flow"/>
+        <text x="698" y="732" class="lbl">[否]</text>
+
+        <rect x="825" y="810" width="100" height="42" class="act3"/><text x="875" y="831" class="text">对比输出</text>
+        <line x1="875" y1="774" x2="875" y2="810" class="flow"/>
+        <text x="892" y="792" class="lbl">[是]</text>
+
+        <polygon points="875,878 920,910 875,942 830,910" fill="#fff" stroke="#52c41a" stroke-width="1.5"/>
+        <text x="875" y="911" class="text" font-size="11">还有用例?</text>
+        <line x1="875" y1="852" x2="875" y2="878" class="flow"/>
+
+        <line x1="830" y1="910" x2="790" y2="910" stroke="#555" stroke-width="1.5"/>
+        <line x1="790" y1="910" x2="790" y2="661" stroke="#555" stroke-width="1.2" stroke-dasharray="5 3"/>
+        <line x1="790" y1="661" x2="825" y2="661" class="flow"/>
+        <text x="760" y="785" class="lbl">[是]</text>
+
+        <rect x="440" y="1010" width="130" height="42" class="act"/><text x="505" y="1031" class="text">汇总得分/通过率</text>
+        <line x1="875" y1="942" x2="875" y2="1015" stroke="#555" stroke-width="1.5"/>
+        <line x1="875" y1="1015" x2="570" y2="1031" class="flow"/>
+        <text x="890" y="973" class="lbl">[否]</text>
+
+        <rect x="440" y="1088" width="130" height="42" class="act"/><text x="505" y="1109" class="text">更新最终状态</text>
+        <line x1="505" y1="1052" x2="505" y2="1088" class="flow"/>
+
+        <rect x="45" y="1148" width="140" height="42" class="act"/><text x="115" y="1169" class="text">轮询查看结果</text>
+        <line x1="440" y1="1109" x2="115" y2="1169" class="flow"/>
+
+        <circle cx="115" cy="1255" r="10" fill="#fff" stroke="#333" stroke-width="2"/>
+        <circle cx="115" cy="1255" r="6" fill="#333"/>
+        <line x1="115" y1="1190" x2="115" y2="1245" class="flow"/>
+      </svg>
+    </div>
+    <div class="note">
+      <strong>活动图要点：</strong>该流程体现“同步受理 + 异步判题”架构；Gateway 承担前置鉴权，Judge 服务负责状态机推进，Problem 服务提供题目/用例/语言依赖，Go-Judge 仅负责沙箱执行。
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
