@@ -12,11 +12,13 @@ import com.emiyaoj.blog.vo.BlogVO;
 import com.emiyaoj.blog.vo.CommentVO;
 import com.emiyaoj.common.domain.PageDTO;
 import com.emiyaoj.common.domain.PageVO;
+import com.emiyaoj.common.exception.BaseException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 
 import java.time.LocalDateTime;
@@ -65,13 +67,6 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
 
     @Override
     public boolean saveBlog(BlogSaveDTO saveDTO, Long userId) {
-        // 检查标签id是否存在且合法
-        List<BlogTag> tags = blogTagMapper.selectByIds(saveDTO.getTagIds());
-        if (tags.size() != saveDTO.getTagIds().size()) {
-            log.warn("标签id不合法");
-            return false;
-        }
-
         Blog blog = new Blog(null, userId, saveDTO.getTitle(), saveDTO.getContent(),
                 LocalDateTime.now(), LocalDateTime.now(), 0);
         if (!this.save(blog)) {
@@ -80,12 +75,25 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
             } catch (Exception ignored) {
             }
             return false;
-        } else {
-            List<BlogTagAssociation> list = saveDTO.getTagIds().stream()
-                    .map(tagId -> new BlogTagAssociation(null, blog.getId(), tagId))
-                    .toList();
-            return !blogTagAssociationMapper.insert(list).isEmpty();
         }
+
+        // 标签为可选项，未传标签时直接返回成功
+        List<Long> tagIds = saveDTO.getTagIds();
+        if (tagIds == null || tagIds.isEmpty()) {
+            return true;
+        }
+
+        // 检查标签id是否存在且合法
+        List<BlogTag> tags = blogTagMapper.selectByIds(tagIds);
+        if (tags.size() != tagIds.size()) {
+            log.warn("标签id不合法");
+            return false;
+        }
+
+        List<BlogTagAssociation> list = tagIds.stream()
+                .map(tagId -> new BlogTagAssociation(null, blog.getId(), tagId))
+                .toList();
+        return !blogTagAssociationMapper.insert(list).isEmpty();
     }
 
     @Override
@@ -114,8 +122,46 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     @Override
     public List<BlogTagVO> selectAllTags() {
         return blogTagMapper.selectList(null).stream()
-                .map(tag -> new BlogTagVO(tag.getId(), tag.getName(), tag.getDesc()))
+                .map(this::convertTagToVO)
                 .toList();
+    }
+
+    @Override
+    public BlogTagVO selectTagById(Long tagId) {
+        return convertTagToVO(blogTagMapper.selectById(tagId));
+    }
+
+    @Override
+    public BlogTagVO saveTag(BlogTagSaveDTO saveDTO) {
+        BlogTag tag = new BlogTag();
+        tag.setName(saveDTO.getName());
+        tag.setDesc(saveDTO.getDesc());
+        blogTagMapper.insert(tag);
+        return convertTagToVO(tag);
+    }
+
+    @Override
+    public BlogTagVO updateTag(BlogTagSaveDTO saveDTO) {
+        BlogTag tag = blogTagMapper.selectById(saveDTO.getId());
+        if (tag == null) {
+            throw new BaseException(404, "标签不存在");
+        }
+        tag.setName(saveDTO.getName());
+        tag.setDesc(saveDTO.getDesc());
+        blogTagMapper.updateById(tag);
+        return convertTagToVO(tag);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deleteTagById(Long tagId) {
+        BlogTag tag = blogTagMapper.selectById(tagId);
+        if (tag == null) {
+            throw new BaseException(404, "标签不存在");
+        }
+        blogTagAssociationMapper.delete(
+                new LambdaQueryWrapper<BlogTagAssociation>().eq(BlogTagAssociation::getTagId, tagId));
+        return blogTagMapper.deleteById(tagId) == 1;
     }
 
     @Override
@@ -168,6 +214,11 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     }
 
     // ==================== 转换方法 ====================
+
+    private BlogTagVO convertTagToVO(BlogTag tag) {
+        if (tag == null) return null;
+        return new BlogTagVO(tag.getId(), tag.getName(), tag.getDesc());
+    }
 
     private BlogVO convertBlogToVO(Blog blog) {
         if (blog == null) return null;

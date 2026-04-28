@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -133,6 +134,34 @@ public class BlogController {
     @GetMapping("/tags")
     public ResponseResult<List<BlogTagVO>> tags() {
         return ResponseResult.success(blogService.selectAllTags());
+    }
+
+    @Operation(summary = "获取指定标签")
+    @GetMapping("/tags/{tagId}")
+    public ResponseResult<BlogTagVO> getTag(@Parameter(description = "标签ID") @PathVariable Long tagId) {
+        BlogTagVO vo = blogService.selectTagById(tagId);
+        return vo != null ? ResponseResult.success(vo) : ResponseResult.fail(404, "未找到该标签");
+    }
+
+    @Operation(summary = "新增标签")
+    @PostMapping("/tags")
+    public ResponseResult<BlogTagVO> addTag(@Valid @RequestBody BlogTagSaveDTO saveDTO) {
+        return ResponseResult.success(blogService.saveTag(saveDTO));
+    }
+
+    @Operation(summary = "修改标签")
+    @PutMapping("/tags/{tagId}")
+    public ResponseResult<BlogTagVO> editTag(@Parameter(description = "标签ID") @PathVariable Long tagId,
+                                             @Valid @RequestBody BlogTagSaveDTO saveDTO) {
+        saveDTO.setId(tagId);
+        return ResponseResult.success(blogService.updateTag(saveDTO));
+    }
+
+    @Operation(summary = "删除标签", description = "删除标签前会级联删除博客与标签的关联关系")
+    @DeleteMapping("/tags/{tagId}")
+    public ResponseResult<?> deleteTag(@Parameter(description = "标签ID") @PathVariable Long tagId) {
+        boolean success = blogService.deleteTagById(tagId);
+        return success ? ResponseResult.success() : ResponseResult.fail("删除失败");
     }
 
     @Operation(summary = "条件查询评论")

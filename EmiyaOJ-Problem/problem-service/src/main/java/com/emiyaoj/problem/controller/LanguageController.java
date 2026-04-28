@@ -83,7 +83,7 @@ public class LanguageController {
     @Operation(summary = "更新编程语言信息")
     public ResponseResult<Boolean> update(@RequestBody LanguageSaveDTO dto) {
         boolean result = languageService.updateLanguage(dto);
-        return ResponseResult.success(result);
+        return result ? ResponseResult.success(true) : ResponseResult.fail("更新失败");
     }
 
     /**
@@ -93,7 +93,7 @@ public class LanguageController {
     @Operation(summary = "启用编程语言")
     public ResponseResult<Boolean> enable(@PathVariable Long id) {
         boolean result = languageService.enableLanguage(id);
-        return ResponseResult.success(result);
+        return result ? ResponseResult.success(true) : ResponseResult.fail("启用失败");
     }
 
     /**
@@ -103,7 +103,7 @@ public class LanguageController {
     @Operation(summary = "禁用编程语言")
     public ResponseResult<Boolean> disable(@PathVariable Long id) {
         boolean result = languageService.disableLanguage(id);
-        return ResponseResult.success(result);
+        return result ? ResponseResult.success(true) : ResponseResult.fail("禁用失败");
     }
 
     /**
@@ -113,6 +113,6 @@ public class LanguageController {
     @Operation(summary = "删除编程语言（物理删除）")
     public ResponseResult<Boolean> delete(@PathVariable Long id) {
         boolean result = languageService.deleteLanguage(id);
-        return ResponseResult.success(result);
+        return result ? ResponseResult.success(true) : ResponseResult.fail("删除失败");
     }
 }
