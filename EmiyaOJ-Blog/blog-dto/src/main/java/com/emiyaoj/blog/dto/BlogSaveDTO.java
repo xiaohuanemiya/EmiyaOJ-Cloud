@@ -1,7 +1,6 @@
 package com.emiyaoj.blog.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -26,7 +25,5 @@ public class BlogSaveDTO implements Serializable {
     @Size(max = 10000, message = "内容长度不能超过10000")
     private String content;
 
-    @NotNull
-    @Size(min = 1, message = "至少选择一个标签")
     private List<Long> tagIds;
 }

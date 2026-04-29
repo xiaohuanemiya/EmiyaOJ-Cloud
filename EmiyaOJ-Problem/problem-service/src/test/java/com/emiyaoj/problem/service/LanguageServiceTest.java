@@ -16,7 +16,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -137,6 +136,8 @@ class LanguageServiceTest {
         LanguageSaveDTO dto = new LanguageSaveDTO();
         dto.setName("Go");
         dto.setVersion("1.22");
+        dto.setExecuteCommand("go run {src}");
+        dto.setSourceFileExt("go");
         dto.setIsCompiled(1);
         dto.setTimeLimitMultiplier(new BigDecimal("1.0"));
         dto.setMemoryLimitMultiplier(new BigDecimal("1.0"));
@@ -157,12 +158,16 @@ class LanguageServiceTest {
 
         LanguageSaveDTO dto = new LanguageSaveDTO();
         dto.setName("Python3");
-        // status, timeLimitMultiplier, memoryLimitMultiplier all null
+        dto.setVersion("3.12");
+        dto.setExecuteCommand("python {src}");
+        dto.setSourceFileExt("py");
+        // status, isCompiled, timeLimitMultiplier, memoryLimitMultiplier all null
 
         LanguageVO vo = languageService.saveLanguage(dto);
 
         assertNotNull(vo);
         assertEquals(1, vo.getStatus());
+        assertEquals(1, vo.getIsCompiled());
         assertEquals(BigDecimal.ONE, vo.getTimeLimitMultiplier());
         assertEquals(BigDecimal.ONE, vo.getMemoryLimitMultiplier());
     }
@@ -174,11 +179,24 @@ class LanguageServiceTest {
         LanguageSaveDTO dto = new LanguageSaveDTO();
         dto.setName("Java");
         dto.setVersion("17");
+        dto.setExecuteCommand("java Main");
+        dto.setSourceFileExt("java");
 
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> languageService.saveLanguage(dto));
         assertEquals("同名同版本的语言已存在", ex.getMessage());
-        verify(languageMapper, never()).insert(Collections.singleton(any()));
+        verify(languageMapper, never()).insert(any(Language.class));
+    }
+
+    @Test
+    void saveLanguage_shouldThrow_whenRequiredFieldsMissing() {
+        LanguageSaveDTO dto = new LanguageSaveDTO();
+        dto.setName("Java");
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> languageService.saveLanguage(dto));
+        assertEquals("语言版本不能为空", ex.getMessage());
+        verify(languageMapper, never()).insert(any(Language.class));
     }
 
     // ======================== updateLanguage ========================
@@ -187,12 +205,15 @@ class LanguageServiceTest {
     void updateLanguage_shouldUpdateSuccessfully_whenExists() {
         Language existing = buildLanguage(1L, "Java", "17", 1);
         when(languageMapper.selectById(1L)).thenReturn(existing);
+        when(languageMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
         when(languageMapper.updateById(any(Language.class))).thenReturn(1);
 
         LanguageSaveDTO dto = new LanguageSaveDTO();
         dto.setId(1L);
         dto.setName("Java");
         dto.setVersion("21");
+        dto.setExecuteCommand("java Main");
+        dto.setSourceFileExt("java");
         dto.setStatus(1);
 
         boolean result = languageService.updateLanguage(dto);
@@ -208,10 +229,32 @@ class LanguageServiceTest {
         LanguageSaveDTO dto = new LanguageSaveDTO();
         dto.setId(99L);
         dto.setName("Unknown");
+        dto.setVersion("1.0");
+        dto.setExecuteCommand("unknown {src}");
+        dto.setSourceFileExt("unknown");
 
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> languageService.updateLanguage(dto));
         assertEquals("语言不存在", ex.getMessage());
+    }
+
+    @Test
+    void updateLanguage_shouldThrow_whenDuplicateNameVersionExists() {
+        Language existing = buildLanguage(1L, "Java", "17", 1);
+        when(languageMapper.selectById(1L)).thenReturn(existing);
+        when(languageMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+
+        LanguageSaveDTO dto = new LanguageSaveDTO();
+        dto.setId(1L);
+        dto.setName("Java");
+        dto.setVersion("21");
+        dto.setExecuteCommand("java Main");
+        dto.setSourceFileExt("java");
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> languageService.updateLanguage(dto));
+        assertEquals("同名同版本的语言已存在", ex.getMessage());
+        verify(languageMapper, never()).updateById(any(Language.class));
     }
 
     // ======================== enableLanguage ========================
@@ -266,12 +309,23 @@ class LanguageServiceTest {
 
     @Test
     void deleteLanguage_shouldDeletePhysically() {
+        when(languageMapper.selectById(1L)).thenReturn(buildLanguage(1L, "Java", "17", 1));
         when(languageMapper.deleteById(1L)).thenReturn(1);
 
         boolean result = languageService.deleteLanguage(1L);
 
         assertTrue(result);
         verify(languageMapper, times(1)).deleteById(1L);
+    }
+
+    @Test
+    void deleteLanguage_shouldThrow_whenNotExists() {
+        when(languageMapper.selectById(99L)).thenReturn(null);
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> languageService.deleteLanguage(99L));
+        assertEquals("语言不存在", ex.getMessage());
+        verify(languageMapper, never()).deleteById(99L);
     }
 
     // ======================== helper ========================

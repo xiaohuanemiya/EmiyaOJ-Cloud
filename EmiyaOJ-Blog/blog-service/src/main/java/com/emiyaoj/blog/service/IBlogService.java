@@ -28,6 +28,14 @@ public interface IBlogService {
 
     List<BlogTagVO> selectAllTags();
 
+    BlogTagVO selectTagById(Long tagId);
+
+    BlogTagVO saveTag(BlogTagSaveDTO saveDTO);
+
+    BlogTagVO updateTag(BlogTagSaveDTO saveDTO);
+
+    boolean deleteTagById(Long tagId);
+
     PageVO<CommentVO> selectCommentPage(Long blogId, PageDTO pageDTO);
 
     CommentVO selectCommentById(Long commentId);
