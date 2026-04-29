@@ -35,4 +35,6 @@ public interface IUserService {
     boolean hasPermission(Long userId, String permissionCode);
 
     boolean hasRole(Long userId, String roleCode);
+
+    List<UserVO> listUsersByPermission(String permissionCode);
 }

@@ -144,3 +144,18 @@ CREATE TABLE `operation_log`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '操作日志表' ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+INSERT INTO `permission`
+(`parent_id`, `permission_code`, `permission_name`, `permission_type`, `path`, `component`, `icon`, `sort_order`, `status`, `deleted`, `create_time`, `update_time`)
+VALUES
+(0, 'CONTEST', 'Contest Management', 1, '/contest', 'contest/index', 'trophy', 40, 1, 0, NOW(), NOW())
+ON DUPLICATE KEY UPDATE
+  `permission_name` = VALUES(`permission_name`),
+  `permission_type` = VALUES(`permission_type`),
+  `path` = VALUES(`path`),
+  `component` = VALUES(`component`),
+  `icon` = VALUES(`icon`),
+  `sort_order` = VALUES(`sort_order`),
+  `status` = VALUES(`status`),
+  `deleted` = VALUES(`deleted`),
+  `update_time` = NOW();

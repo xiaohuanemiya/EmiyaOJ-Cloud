@@ -139,6 +139,12 @@ public class UserController {
         return ResponseResult.success(userService.hasPermission(id, permissionCode));
     }
 
+    @GetMapping("/permission-users")
+    @Operation(summary = "根据权限编码查询用户")
+    public ResponseResult<List<UserVO>> listUsersByPermission(@RequestParam String permissionCode) {
+        return ResponseResult.success(userService.listUsersByPermission(permissionCode));
+    }
+
     /**
      * 判断用户是否拥有某个角色
      */

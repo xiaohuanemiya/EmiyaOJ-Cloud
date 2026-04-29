@@ -16,6 +16,8 @@ DROP TABLE IF EXISTS `submission`;
 CREATE TABLE `submission` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '提交ID',
   `problem_id` bigint NOT NULL COMMENT '题目ID',
+  `contest_id` bigint NULL DEFAULT NULL COMMENT '竞赛ID，普通提交为空',
+  `contest_problem_id` bigint NULL DEFAULT NULL COMMENT '竞赛题目关联ID，普通提交为空',
   `user_id` bigint NOT NULL COMMENT '用户ID',
   `language_id` bigint NOT NULL COMMENT '语言ID',
   `code` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '源代码',
@@ -24,6 +26,8 @@ CREATE TABLE `submission` (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_problem_id` (`problem_id` ASC) USING BTREE,
+  INDEX `idx_contest_id` (`contest_id` ASC) USING BTREE,
+  INDEX `idx_contest_problem_id` (`contest_problem_id` ASC) USING BTREE,
   INDEX `idx_user_id` (`user_id` ASC) USING BTREE,
   INDEX `idx_language_id` (`language_id` ASC) USING BTREE,
   INDEX `idx_create_time` (`create_time` ASC) USING BTREE

@@ -225,6 +225,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 .anyMatch(r -> r.getRoleCode().equals(roleCode));
     }
 
+    @Override
+    public List<UserVO> listUsersByPermission(String permissionCode) {
+        if (!StringUtils.hasText(permissionCode)) {
+            return List.of();
+        }
+        return baseMapper.selectUsersByPermissionCode(permissionCode).stream()
+                .map(this::convertToVO)
+                .collect(Collectors.toList());
+    }
+
     // ==================== 私有方法 ====================
 
     private User selectUserByUsername(String username) {

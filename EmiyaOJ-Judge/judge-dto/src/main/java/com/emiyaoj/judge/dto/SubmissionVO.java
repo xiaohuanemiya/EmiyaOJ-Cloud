@@ -21,6 +21,10 @@ public class SubmissionVO implements Serializable {
 
     private Long problemId;
 
+    private Long contestId;
+
+    private Long contestProblemId;
+
     private Long userId;
 
     private Long languageId;

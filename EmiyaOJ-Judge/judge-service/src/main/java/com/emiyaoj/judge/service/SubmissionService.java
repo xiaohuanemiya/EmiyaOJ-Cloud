@@ -18,6 +18,7 @@ import com.emiyaoj.judge.mapper.SubmissionCaseResultMapper;
 import com.emiyaoj.judge.mapper.SubmissionJudgeResultMapper;
 import com.emiyaoj.judge.mapper.SubmissionMapper;
 import com.emiyaoj.problem.api.ProblemFeignClient;
+import com.emiyaoj.problem.dto.ContestSubmitCheckVO;
 import com.emiyaoj.problem.dto.LanguageVO;
 import com.emiyaoj.problem.dto.ProblemVO;
 import lombok.RequiredArgsConstructor;
@@ -32,9 +33,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * 提交与判题服务。
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -46,22 +44,35 @@ public class SubmissionService {
     private final JudgeExecutor judgeExecutor;
     private final ProblemFeignClient problemFeignClient;
 
-    /**
-     * 提交代码：创建提交记录和初始判题汇总结果后异步执行判题。
-     */
     public SubmissionVO submitCode(SubmitCodeDTO dto, Long userId) {
         ResponseResult<ProblemVO> problemResult = problemFeignClient.getProblemById(dto.getProblemId());
         if (problemResult == null || problemResult.getCode() != 200 || problemResult.getData() == null) {
-            throw new BaseException(400, "题目不存在");
+            throw new BaseException(400, "Problem does not exist");
         }
 
         ResponseResult<LanguageVO> languageResult = problemFeignClient.getLanguageById(dto.getLanguageId());
         if (languageResult == null || languageResult.getCode() != 200 || languageResult.getData() == null) {
-            throw new BaseException(400, "编程语言不存在");
+            throw new BaseException(400, "Language does not exist");
+        }
+
+        Long contestProblemId = null;
+        if (dto.getContestId() != null) {
+            ResponseResult<ContestSubmitCheckVO> checkResult = problemFeignClient.checkContestSubmit(
+                    dto.getContestId(), dto.getProblemId(), userId);
+            if (checkResult == null || checkResult.getCode() != 200 || checkResult.getData() == null
+                    || !Boolean.TRUE.equals(checkResult.getData().getAllowed())) {
+                String message = checkResult != null && checkResult.getData() != null
+                        ? checkResult.getData().getMessage()
+                        : "Contest submission is not allowed";
+                throw new BaseException(400, message);
+            }
+            contestProblemId = checkResult.getData().getContestProblemId();
         }
 
         Submission submission = new Submission();
         submission.setProblemId(dto.getProblemId());
+        submission.setContestId(dto.getContestId());
+        submission.setContestProblemId(contestProblemId);
         submission.setUserId(userId);
         submission.setLanguageId(dto.getLanguageId());
         submission.setCode(dto.getCode());
@@ -80,15 +91,12 @@ public class SubmissionService {
         judgeResult.setMaxMemoryUsed(0L);
         judgeResultMapper.insert(judgeResult);
 
-        log.info("Submission created: id={}", submission.getId());
+        log.info("Submission created: id={}, contestId={}", submission.getId(), submission.getContestId());
         judgeExecutor.executeJudgeAsync(submission.getId(), dto.getProblemId(), dto.getLanguageId(), dto.getCode());
 
         return toSubmissionVO(submission, judgeResult);
     }
 
-    /**
-     * 查询提交详情。
-     */
     public SubmissionDetailVO getSubmissionById(Long id) {
         Submission submission = submissionMapper.selectById(id);
         if (submission == null) {
@@ -109,9 +117,6 @@ public class SubmissionService {
         return vo;
     }
 
-    /**
-     * 分页查询提交记录。
-     */
     public PageVO<SubmissionVO> getSubmissionPage(PageDTO pageDTO, Long problemId, Long userId) {
         LambdaQueryWrapper<Submission> wrapper = new LambdaQueryWrapper<>();
         if (problemId != null) {
@@ -133,6 +138,19 @@ public class SubmissionService {
                 .toList();
 
         return new PageVO<>(page.getTotal(), voList, (long) pageDTO.getPageNum(), (long) pageDTO.getPageSize());
+    }
+
+    public List<SubmissionVO> listContestSubmissions(Long contestId) {
+        List<Submission> submissions = submissionMapper.selectList(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getContestId, contestId)
+                        .orderByAsc(Submission::getCreateTime)
+                        .orderByAsc(Submission::getId)
+        );
+        Map<Long, SubmissionJudgeResult> resultMap = selectJudgeResultMap(submissions);
+        return submissions.stream()
+                .map(submission -> toSubmissionVO(submission, resultMap.get(submission.getId())))
+                .toList();
     }
 
     private SubmissionJudgeResult selectJudgeResult(Long submissionId) {
@@ -163,6 +181,8 @@ public class SubmissionService {
         SubmissionVO vo = new SubmissionVO();
         vo.setId(submission.getId());
         vo.setProblemId(submission.getProblemId());
+        vo.setContestId(submission.getContestId());
+        vo.setContestProblemId(submission.getContestProblemId());
         vo.setUserId(submission.getUserId());
         vo.setLanguageId(submission.getLanguageId());
         vo.setCreateTime(submission.getCreateTime());

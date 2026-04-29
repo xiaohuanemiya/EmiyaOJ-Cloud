@@ -23,6 +23,10 @@ public class Submission {
     /** 题目ID */
     private Long problemId;
 
+    private Long contestId;
+
+    private Long contestProblemId;
+
     /** 用户ID */
     private Long userId;
 

@@ -13,6 +13,8 @@ public class SubmitCodeDTO implements Serializable {
     /** 题目 ID */
     private Long problemId;
 
+    private Long contestId;
+
     /** 编程语言 ID */
     private Long languageId;
 
