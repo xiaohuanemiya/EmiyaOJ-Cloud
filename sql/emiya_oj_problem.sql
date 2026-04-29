@@ -11,7 +11,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- 题目表
 -- ----------------------------
 DROP TABLE IF EXISTS `problem`;
-CREATE TABLE `problem`  (
+CREATE TABLE `problem` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '题目ID',
   `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题目标题',
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '题目描述',
@@ -35,17 +35,17 @@ CREATE TABLE `problem`  (
   `create_by` bigint NULL DEFAULT NULL COMMENT '创建者',
   `update_by` bigint NULL DEFAULT NULL COMMENT '更新者',
   PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_difficulty`(`difficulty` ASC) USING BTREE,
-  INDEX `idx_status`(`status` ASC) USING BTREE,
-  INDEX `idx_author_id`(`author_id` ASC) USING BTREE,
-  INDEX `idx_create_time`(`create_time` ASC) USING BTREE
+  INDEX `idx_difficulty` (`difficulty` ASC) USING BTREE,
+  INDEX `idx_status` (`status` ASC) USING BTREE,
+  INDEX `idx_author_id` (`author_id` ASC) USING BTREE,
+  INDEX `idx_create_time` (`create_time` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '题目表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- 标签表
 -- ----------------------------
 DROP TABLE IF EXISTS `tag`;
-CREATE TABLE `tag`  (
+CREATE TABLE `tag` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '标签ID',
   `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标签名称',
   `description` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '标签描述',
@@ -53,29 +53,29 @@ CREATE TABLE `tag`  (
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `uk_name`(`name` ASC) USING BTREE
+  UNIQUE INDEX `uk_name` (`name` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '标签表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- 题目标签关联表
 -- ----------------------------
 DROP TABLE IF EXISTS `problem_tag`;
-CREATE TABLE `problem_tag`  (
+CREATE TABLE `problem_tag` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `problem_id` bigint NOT NULL COMMENT '题目ID',
   `tag_id` bigint NOT NULL COMMENT '标签ID',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `uk_problem_tag`(`problem_id` ASC, `tag_id` ASC) USING BTREE,
-  INDEX `idx_problem_id`(`problem_id` ASC) USING BTREE,
-  INDEX `idx_tag_id`(`tag_id` ASC) USING BTREE
+  UNIQUE INDEX `uk_problem_tag` (`problem_id` ASC, `tag_id` ASC) USING BTREE,
+  INDEX `idx_problem_id` (`problem_id` ASC) USING BTREE,
+  INDEX `idx_tag_id` (`tag_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '题目标签关联表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- 测试用例表
 -- ----------------------------
 DROP TABLE IF EXISTS `test_case`;
-CREATE TABLE `test_case`  (
+CREATE TABLE `test_case` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '测试用例ID',
   `problem_id` bigint NOT NULL COMMENT '题目ID',
   `input` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '输入数据',
@@ -87,32 +87,9 @@ CREATE TABLE `test_case`  (
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_problem_id`(`problem_id` ASC) USING BTREE,
-  INDEX `idx_is_sample`(`is_sample` ASC) USING BTREE,
-  INDEX `idx_sort_order`(`sort_order` ASC) USING BTREE
+  INDEX `idx_problem_id` (`problem_id` ASC) USING BTREE,
+  INDEX `idx_is_sample` (`is_sample` ASC) USING BTREE,
+  INDEX `idx_sort_order` (`sort_order` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '测试用例表' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- 编程语言表
--- ----------------------------
-DROP TABLE IF EXISTS `language`;
-CREATE TABLE `language`  (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '语言ID',
-  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '语言名称',
-  `version` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '版本',
-  `compile_command` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '编译命令模板',
-  `execute_command` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '执行命令模板',
-  `source_file_ext` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '源文件扩展名',
-  `executable_ext` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '可执行文件扩展名',
-  `is_compiled` tinyint NULL DEFAULT 1 COMMENT '是否需要编译',
-  `time_limit_multiplier` decimal(3, 2) NULL DEFAULT 1.00 COMMENT '时间限制倍数',
-  `memory_limit_multiplier` decimal(3, 2) NULL DEFAULT 1.00 COMMENT '内存限制倍数',
-  `status` tinyint NULL DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `uk_name_version`(`name` ASC, `version` ASC) USING BTREE,
-  INDEX `idx_status`(`status` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '编程语言表' ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;

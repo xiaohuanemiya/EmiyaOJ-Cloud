@@ -46,6 +46,8 @@ Request body:
 }
 ```
 
+`languageId` 必须来自启用的 `/language/list`。判题服务会通过该 ID 获取语言配置，并根据语言表中的编译命令、运行命令、文件名和资源限制生成 go-judge 调用参数。
+
 Response `data`: `SubmissionVO`
 
 ```json

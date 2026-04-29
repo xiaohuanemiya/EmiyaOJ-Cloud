@@ -200,13 +200,21 @@ classDiagram
         +Long id
         +String name
         +String version
-        +String compileCommand
-        +String executeCommand
+        +String languageVersion
+        +String compileFileName
         +String sourceFileExt
-        +String executableExt
+        +String executableFileName
+        +String compiledFileNames
+        +String compileCommand
+        +String runCommand
+        +String envVars
         +Integer isCompiled
         +Double timeLimitMultiplier
         +Double memoryLimitMultiplier
+        +Integer compileTimeLimit
+        +Integer compileMemoryLimit
+        +Integer compileProcLimit
+        +Integer runProcLimit
         +Integer status
     }
 
@@ -597,13 +605,21 @@ erDiagram
         bigint id PK
         varchar name
         varchar version
-        varchar compile_command
-        varchar execute_command
+        varchar language_version
+        varchar compile_file_name
         varchar source_file_ext
-        varchar executable_ext
+        varchar executable_file_name
+        varchar compiled_file_names
+        text compile_command
+        text run_command
+        text env_vars
         tinyint is_compiled
         double time_limit_multiplier
         double memory_limit_multiplier
+        int compile_time_limit
+        int compile_memory_limit
+        int compile_proc_limit
+        int run_proc_limit
         tinyint status
     }
 

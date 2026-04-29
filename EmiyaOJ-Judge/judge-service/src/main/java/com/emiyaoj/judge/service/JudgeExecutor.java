@@ -64,7 +64,7 @@ public class JudgeExecutor {
                 updateSummary(submissionId, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "获取语言信息失败", null);
                 return;
             }
-            String languageName = langResult.getData().getName();
+            LanguageVO language = langResult.getData();
 
             ResponseResult<List<TestCaseVO>> testCaseResult = problemFeignClient.getTestCasesByProblemId(problemId);
             if (testCaseResult == null || testCaseResult.getData() == null || testCaseResult.getData().isEmpty()) {
@@ -78,8 +78,8 @@ public class JudgeExecutor {
             long timeLimit = problem != null && problem.getTimeLimit() != null ? problem.getTimeLimit() : 1000;
             long memoryLimit = problem != null && problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256;
 
-            if (!languageName.toLowerCase().contains("python")) {
-                GoJudgeResult compileResult = goJudgeService.compile(code, languageName);
+            if (language.getIsCompiled() == null || language.getIsCompiled() == 1) {
+                GoJudgeResult compileResult = goJudgeService.compile(code, language);
                 if (compileResult != null && !GoJudgeStatus.ACCEPTED.getValue().equals(compileResult.getStatus())) {
                     String compileError = extractCompileError(compileResult);
                     updateSummary(submissionId, testCases, caseResults, JudgeStatus.COMPILE_ERROR, null, compileError);
@@ -96,7 +96,7 @@ public class JudgeExecutor {
 
             for (int i = 0; i < testCases.size(); i++) {
                 TestCaseVO testCase = testCases.get(i);
-                GoJudgeResult runResult = goJudgeService.run(languageName, fileIds, code, testCase, timeLimit, memoryLimit);
+                GoJudgeResult runResult = goJudgeService.run(language, fileIds, code, testCase, timeLimit, memoryLimit);
                 SubmissionCaseResult caseResult = buildBaseCaseResult(submissionId, testCase, i + 1, runResult);
 
                 if (runResult == null) {
