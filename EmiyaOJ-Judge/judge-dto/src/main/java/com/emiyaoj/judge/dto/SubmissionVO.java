@@ -9,7 +9,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 提交记录 VO
+ * 提交记录列表 VO，包含提交元信息与汇总判题结果。
  */
 @Data
 @Builder
@@ -26,19 +26,22 @@ public class SubmissionVO implements Serializable {
     private Long languageId;
 
     /**
-     * 判题状态:
      * 0-Pending, 1-Judging, 2-AC, 3-CE, 4-SE,
      * 5-WA, 6-TLE, 7-MLE, 8-RE, 9-OLE, 10-PA
      */
     private Integer status;
 
+    private Integer passedCaseCount;
+
+    private Integer totalCaseCount;
+
     private Integer score;
 
-    /** 使用时间（毫秒） */
-    private Long timeUsed;
+    /** 最高运行时间（毫秒） */
+    private Long maxTimeUsed;
 
-    /** 使用内存（KB） */
-    private Long memoryUsed;
+    /** 最高运行内存（KB） */
+    private Long maxMemoryUsed;
 
     /** 错误信息 */
     private String errorMessage;
@@ -46,8 +49,7 @@ public class SubmissionVO implements Serializable {
     /** 编译信息 */
     private String compileMessage;
 
-    /** 通过率 */
-    private Double passRate;
-
     private LocalDateTime createTime;
+
+    private LocalDateTime finishTime;
 }

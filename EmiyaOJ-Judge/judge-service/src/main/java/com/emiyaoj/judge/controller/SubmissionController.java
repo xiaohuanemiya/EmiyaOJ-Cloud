@@ -3,16 +3,22 @@ package com.emiyaoj.judge.controller;
 import com.emiyaoj.common.domain.PageDTO;
 import com.emiyaoj.common.domain.PageVO;
 import com.emiyaoj.common.domain.ResponseResult;
+import com.emiyaoj.judge.dto.SubmissionDetailVO;
 import com.emiyaoj.judge.dto.SubmissionVO;
 import com.emiyaoj.judge.service.SubmissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 提交记录查询控制器
+ * 提交记录查询控制器。
  */
 @Tag(name = "提交记录管理")
 @RestController
@@ -22,10 +28,11 @@ public class SubmissionController {
 
     private final SubmissionService submissionService;
 
-    @Operation(summary = "根据ID查询提交记录")
+    @Operation(summary = "根据ID查询提交记录详情")
     @GetMapping("/{id}")
-    public ResponseResult<SubmissionVO> getSubmissionById(@Parameter(description = "提交记录ID") @PathVariable Long id) {
-        SubmissionVO vo = submissionService.getSubmissionById(id);
+    public ResponseResult<SubmissionDetailVO> getSubmissionById(
+            @Parameter(description = "提交记录ID") @PathVariable Long id) {
+        SubmissionDetailVO vo = submissionService.getSubmissionById(id);
         if (vo == null) {
             return ResponseResult.fail(404, "提交记录不存在");
         }
