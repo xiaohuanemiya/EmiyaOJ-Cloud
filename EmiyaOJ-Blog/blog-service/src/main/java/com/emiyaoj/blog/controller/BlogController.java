@@ -1,6 +1,7 @@
 package com.emiyaoj.blog.controller;
 
 import com.emiyaoj.blog.dto.*;
+import com.emiyaoj.blog.service.IBlogImageService;
 import com.emiyaoj.blog.service.IBlogService;
 import com.emiyaoj.blog.service.IUserBlogService;
 import com.emiyaoj.blog.vo.*;
@@ -13,14 +14,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-/**
- * 博客管理（后台管理员接口）
- */
-@Tag(name = "博客管理")
+@Tag(name = "Blog")
 @RestController
 @RequestMapping("/blog")
 @RequiredArgsConstructor
@@ -28,14 +30,15 @@ public class BlogController {
 
     private final IUserBlogService userBlogService;
     private final IBlogService blogService;
+    private final IBlogImageService blogImageService;
 
-    @Operation(summary = "查询所有博客")
+    @Operation(summary = "List all blogs")
     @GetMapping("")
     public ResponseResult<List<BlogVO>> blogs() {
         return ResponseResult.success(blogService.selectAll());
     }
 
-    @Operation(summary = "发布博客")
+    @Operation(summary = "Publish a blog")
     @PostMapping("")
     public ResponseResult<?> addBlog(@RequestBody BlogSaveDTO blogSaveDTO,
                                      @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
@@ -43,29 +46,48 @@ public class BlogController {
         return success ? ResponseResult.success() : ResponseResult.fail("添加失败");
     }
 
-    @Operation(summary = "分页条件查询博客")
+    @Operation(summary = "Query blogs")
     @PostMapping("/query")
-    public ResponseResult<PageVO<BlogVO>> queryBlog(@RequestBody BlogQueryDTO blogQueryDTO) {
-        return ResponseResult.success(blogService.select(blogQueryDTO));
+    public ResponseResult<PageVO<BlogVO>> queryBlog(@RequestBody BlogQueryDTO blogQueryDTO,
+                                                    @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        return ResponseResult.success(blogService.select(blogQueryDTO, userId));
     }
 
-    @Operation(summary = "获取指定博客信息")
+    @Operation(summary = "Get blog detail")
     @GetMapping("/{bid}")
-    public ResponseResult<BlogVO> getBlog(@Parameter(description = "博客ID") @PathVariable Long bid) {
-        BlogVO vo = blogService.selectBlogById(bid);
+    public ResponseResult<BlogVO> getBlog(@Parameter(description = "Blog ID") @PathVariable Long bid,
+                                          @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        BlogVO vo = blogService.selectBlogById(bid, userId);
         return vo != null ? ResponseResult.success(vo) : ResponseResult.fail(404, "未找到该博客");
     }
 
-    @Operation(summary = "删除博客", description = "逻辑删除")
+    @Operation(summary = "Create a problem solution")
+    @PostMapping("/problems/{problemId}/solutions")
+    public ResponseResult<?> addSolution(@Parameter(description = "Problem ID") @PathVariable Long problemId,
+                                         @RequestBody BlogSaveDTO blogSaveDTO,
+                                         @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
+        boolean success = blogService.saveSolution(problemId, blogSaveDTO, userId);
+        return success ? ResponseResult.success() : ResponseResult.fail("添加失败");
+    }
+
+    @Operation(summary = "Query problem solutions")
+    @PostMapping("/problems/{problemId}/solutions/query")
+    public ResponseResult<PageVO<BlogVO>> querySolutions(@Parameter(description = "Problem ID") @PathVariable Long problemId,
+                                                         @RequestBody BlogQueryDTO blogQueryDTO,
+                                                         @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        return ResponseResult.success(blogService.selectProblemSolutions(problemId, blogQueryDTO, userId));
+    }
+
+    @Operation(summary = "Delete blog")
     @DeleteMapping("/{bid}")
-    public ResponseResult<?> deleteBlog(@Parameter(description = "博客ID") @PathVariable Long bid) {
+    public ResponseResult<?> deleteBlog(@Parameter(description = "Blog ID") @PathVariable Long bid) {
         boolean success = blogService.deleteBlogById(bid);
         return success ? ResponseResult.success() : ResponseResult.fail("删除失败");
     }
 
-    @Operation(summary = "修改博客")
+    @Operation(summary = "Edit blog")
     @PutMapping("/{bid}")
-    public ResponseResult<?> editBlog(@Parameter(description = "博客ID") @PathVariable Long bid,
+    public ResponseResult<?> editBlog(@Parameter(description = "Blog ID") @PathVariable Long bid,
                                       @RequestBody BlogEditDTO blogEditDTO,
                                       @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
         blogEditDTO.setId(bid);
@@ -75,111 +97,148 @@ public class BlogController {
         return success ? ResponseResult.success() : ResponseResult.fail("修改失败");
     }
 
-    @Operation(summary = "分页查询博客评论")
+    @Operation(summary = "Query blog comments")
     @PostMapping("/{bid}/comments/query")
-    public ResponseResult<PageVO<CommentVO>> selectCommentPage(@Parameter(description = "博客ID") @PathVariable Long bid,
+    public ResponseResult<PageVO<CommentVO>> selectCommentPage(@Parameter(description = "Blog ID") @PathVariable Long bid,
                                                                @RequestBody PageDTO pageDTO) {
         return ResponseResult.success(blogService.selectCommentPage(bid, pageDTO));
     }
 
-    @Operation(summary = "发表评论")
+    @Operation(summary = "Add comment")
     @PostMapping("/{bid}/comments")
-    public ResponseResult<?> addComment(@Parameter(description = "博客ID") @PathVariable Long bid,
+    public ResponseResult<?> addComment(@Parameter(description = "Blog ID") @PathVariable Long bid,
                                         @RequestBody BlogCommentSaveDTO saveDTO,
                                         @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
         boolean success = blogService.saveComment(bid, saveDTO, userId);
         return success ? ResponseResult.success() : ResponseResult.fail("添加失败");
     }
 
-    @Operation(summary = "收藏博客")
+    @Operation(summary = "Favorite blog")
     @PostMapping("/{bid}/star")
-    public ResponseResult<?> starBlog(@Parameter(description = "博客ID") @PathVariable Long bid,
+    public ResponseResult<?> starBlog(@Parameter(description = "Blog ID") @PathVariable Long bid,
                                       @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
         boolean success = userBlogService.starBlog(bid, userId);
         return success ? ResponseResult.success() : ResponseResult.fail("收藏失败");
     }
 
-    @Operation(summary = "取消收藏博客")
+    @Operation(summary = "Unfavorite blog")
     @DeleteMapping("/{bid}/star")
-    public ResponseResult<?> unstarBlog(@Parameter(description = "博客ID") @PathVariable Long bid,
+    public ResponseResult<?> unstarBlog(@Parameter(description = "Blog ID") @PathVariable Long bid,
                                         @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
         boolean success = userBlogService.unstarBlog(bid, userId);
         return success ? ResponseResult.success() : ResponseResult.fail("取消失败");
     }
 
-    @Operation(summary = "查询博客模块用户信息")
+    @Operation(summary = "Like blog")
+    @PostMapping("/{bid}/like")
+    public ResponseResult<?> likeBlog(@Parameter(description = "Blog ID") @PathVariable Long bid,
+                                      @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
+        boolean success = blogService.likeBlog(bid, userId);
+        return success ? ResponseResult.success() : ResponseResult.fail("点赞失败");
+    }
+
+    @Operation(summary = "Unlike blog")
+    @DeleteMapping("/{bid}/like")
+    public ResponseResult<?> unlikeBlog(@Parameter(description = "Blog ID") @PathVariable Long bid,
+                                        @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
+        boolean success = blogService.unlikeBlog(bid, userId);
+        return success ? ResponseResult.success() : ResponseResult.fail("取消失败");
+    }
+
+    @Operation(summary = "Upload blog image")
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseResult<BlogPictureVO> uploadImage(@RequestPart("file") MultipartFile file,
+                                                     @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
+        return ResponseResult.success(blogImageService.upload(file, userId));
+    }
+
+    @Operation(summary = "Download blog image")
+    @GetMapping("/images/{id}/download")
+    public ResponseEntity<InputStreamResource> downloadImage(@Parameter(description = "Image ID") @PathVariable Long id) {
+        return blogImageService.download(id);
+    }
+
+    @Operation(summary = "Delete blog image")
+    @DeleteMapping("/images/{id}")
+    public ResponseResult<?> deleteImage(@Parameter(description = "Image ID") @PathVariable Long id,
+                                         @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
+        boolean success = blogImageService.delete(id, userId);
+        return success ? ResponseResult.success() : ResponseResult.fail("删除失败");
+    }
+
+    @Operation(summary = "Get blog user profile")
     @GetMapping("/user/{uid}")
-    public ResponseResult<UserBlogVO> userBlog(@Parameter(description = "用户ID") @PathVariable Long uid) {
+    public ResponseResult<UserBlogVO> userBlog(@Parameter(description = "User ID") @PathVariable Long uid) {
         UserBlogVO vo = userBlogService.selectUserBlogById(uid);
         return vo != null ? ResponseResult.success(vo) : ResponseResult.fail(404, "未找到该用户");
     }
 
-    @Operation(summary = "分页查询用户发表的博客")
+    @Operation(summary = "Query user's blogs")
     @PostMapping("/user/{uid}/blogs/query")
-    public ResponseResult<PageVO<BlogVO>> userBlogBlogs(@Parameter(description = "用户ID") @PathVariable Long uid,
+    public ResponseResult<PageVO<BlogVO>> userBlogBlogs(@Parameter(description = "User ID") @PathVariable Long uid,
                                                         @RequestBody UserBlogBlogsQueryDTO blogsQueryDTO) {
         blogsQueryDTO.setUserId(uid);
         return ResponseResult.success(userBlogService.selectUserBlogBlogs(blogsQueryDTO));
     }
 
-    @Operation(summary = "分页查询用户收藏的博客")
+    @Operation(summary = "Query user's favorite blogs")
     @PostMapping("/user/{uid}/stars/query")
-    public ResponseResult<PageVO<BlogVO>> userBlogStars(@Parameter(description = "用户ID") @PathVariable Long uid,
+    public ResponseResult<PageVO<BlogVO>> userBlogStars(@Parameter(description = "User ID") @PathVariable Long uid,
                                                         @RequestBody UserBlogStarsQueryDTO starsQueryDTO) {
         starsQueryDTO.setUserId(uid);
         return ResponseResult.success(userBlogService.selectUserBlogStars(starsQueryDTO));
     }
 
-    @Operation(summary = "查询所有标签")
+    @Operation(summary = "List tags")
     @GetMapping("/tags")
     public ResponseResult<List<BlogTagVO>> tags() {
         return ResponseResult.success(blogService.selectAllTags());
     }
 
-    @Operation(summary = "获取指定标签")
+    @Operation(summary = "Get tag")
     @GetMapping("/tags/{tagId}")
-    public ResponseResult<BlogTagVO> getTag(@Parameter(description = "标签ID") @PathVariable Long tagId) {
+    public ResponseResult<BlogTagVO> getTag(@Parameter(description = "Tag ID") @PathVariable Long tagId) {
         BlogTagVO vo = blogService.selectTagById(tagId);
         return vo != null ? ResponseResult.success(vo) : ResponseResult.fail(404, "未找到该标签");
     }
 
-    @Operation(summary = "新增标签")
+    @Operation(summary = "Create tag")
     @PostMapping("/tags")
     public ResponseResult<BlogTagVO> addTag(@Valid @RequestBody BlogTagSaveDTO saveDTO) {
         return ResponseResult.success(blogService.saveTag(saveDTO));
     }
 
-    @Operation(summary = "修改标签")
+    @Operation(summary = "Edit tag")
     @PutMapping("/tags/{tagId}")
-    public ResponseResult<BlogTagVO> editTag(@Parameter(description = "标签ID") @PathVariable Long tagId,
+    public ResponseResult<BlogTagVO> editTag(@Parameter(description = "Tag ID") @PathVariable Long tagId,
                                              @Valid @RequestBody BlogTagSaveDTO saveDTO) {
         saveDTO.setId(tagId);
         return ResponseResult.success(blogService.updateTag(saveDTO));
     }
 
-    @Operation(summary = "删除标签", description = "删除标签前会级联删除博客与标签的关联关系")
+    @Operation(summary = "Delete tag")
     @DeleteMapping("/tags/{tagId}")
-    public ResponseResult<?> deleteTag(@Parameter(description = "标签ID") @PathVariable Long tagId) {
+    public ResponseResult<?> deleteTag(@Parameter(description = "Tag ID") @PathVariable Long tagId) {
         boolean success = blogService.deleteTagById(tagId);
         return success ? ResponseResult.success() : ResponseResult.fail("删除失败");
     }
 
-    @Operation(summary = "条件查询评论")
+    @Operation(summary = "Query comments")
     @PostMapping("/comments/query")
     public ResponseResult<List<CommentVO>> queryComments(@RequestBody CommentQueryDTO queryDTO) {
         return ResponseResult.success(blogService.selectComment(queryDTO));
     }
 
-    @Operation(summary = "获取指定评论")
+    @Operation(summary = "Get comment")
     @GetMapping("/comments/{cid}")
-    public ResponseResult<CommentVO> getComment(@Parameter(description = "评论ID") @PathVariable Long cid) {
+    public ResponseResult<CommentVO> getComment(@Parameter(description = "Comment ID") @PathVariable Long cid) {
         CommentVO vo = blogService.selectCommentById(cid);
         return vo != null ? ResponseResult.success(vo) : ResponseResult.fail(404, "未找到该评论");
     }
 
-    @Operation(summary = "删除评论")
+    @Operation(summary = "Delete comment")
     @DeleteMapping("/comments/{cid}")
-    public ResponseResult<?> deleteComment(@Parameter(description = "评论ID") @PathVariable Long cid) {
+    public ResponseResult<?> deleteComment(@Parameter(description = "Comment ID") @PathVariable Long cid) {
         int code = blogService.deleteComment(cid);
         return switch (code) {
             case HttpServletResponse.SC_OK -> ResponseResult.success();

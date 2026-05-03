@@ -8,44 +8,28 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
- * 博客 VO
+ * Blog image metadata for frontend use.
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class BlogVO implements Serializable {
+public class BlogPictureVO implements Serializable {
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     @JsonSerialize(using = ToStringSerializer.class)
-    private Long userId;
+    private Long blogId;
 
-    private String title;
+    private String url;
 
-    private String content;
+    private String contentType;
 
-    private Integer blogType;
+    private Long size;
 
-    @JsonSerialize(using = ToStringSerializer.class)
-    private Long problemId;
-
-    private String problemTitle;
-
-    private Integer viewCount;
-
-    private Integer likeCount;
-
-    private Boolean liked;
+    private String originalFilename;
 
     private LocalDateTime createTime;
-
-    private LocalDateTime updateTime;
-
-    private List<BlogTagVO> tags;
-
-    private List<BlogPictureVO> pictures;
 }

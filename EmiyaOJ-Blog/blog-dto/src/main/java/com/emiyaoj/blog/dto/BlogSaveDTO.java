@@ -25,5 +25,14 @@ public class BlogSaveDTO implements Serializable {
     @Size(max = 10000, message = "内容长度不能超过10000")
     private String content;
 
+    /** 0 normal blog, 1 problem solution. */
+    private Integer blogType;
+
+    /** Required when blogType is 1. */
+    private Long problemId;
+
     private List<Long> tagIds;
+
+    /** Uploaded image IDs to bind to the blog after save. */
+    private List<Long> pictureIds;
 }

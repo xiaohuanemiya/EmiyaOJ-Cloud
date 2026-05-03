@@ -18,13 +18,25 @@ public interface IBlogService {
 
     PageVO<BlogVO> select(BlogQueryDTO queryDTO);
 
+    PageVO<BlogVO> select(BlogQueryDTO queryDTO, Long userId);
+
     boolean saveBlog(BlogSaveDTO saveDTO, Long userId);
 
+    boolean saveSolution(Long problemId, BlogSaveDTO saveDTO, Long userId);
+
+    PageVO<BlogVO> selectProblemSolutions(Long problemId, BlogQueryDTO queryDTO, Long userId);
+
     BlogVO selectBlogById(Long blogId);
+
+    BlogVO selectBlogById(Long blogId, Long userId);
 
     boolean deleteBlogById(Long blogId);
 
     boolean editBlog(BlogEditDTO editDTO, Long userId);
+
+    boolean likeBlog(Long blogId, Long userId);
+
+    boolean unlikeBlog(Long blogId, Long userId);
 
     List<BlogTagVO> selectAllTags();
 

@@ -11,13 +11,13 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * Blog image metadata.
+ * Blog like relation.
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("blog_picture")
-public class BlogPicture implements Serializable {
+@TableName("blog_like")
+public class BlogLike implements Serializable {
 
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
@@ -25,16 +25,6 @@ public class BlogPicture implements Serializable {
     private Long userId;
 
     private Long blogId;
-
-    private String objectName;
-
-    private String url;
-
-    private String contentType;
-
-    private Long size;
-
-    private String originalFilename;
 
     private LocalDateTime createTime;
 

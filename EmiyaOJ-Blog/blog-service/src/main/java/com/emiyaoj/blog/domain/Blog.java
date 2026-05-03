@@ -28,6 +28,14 @@ public class Blog implements Serializable {
 
     private String content;
 
+    private Integer blogType;
+
+    private Long problemId;
+
+    private Integer viewCount;
+
+    private Integer likeCount;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

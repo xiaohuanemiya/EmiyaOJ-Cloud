@@ -26,11 +26,17 @@ CREATE TABLE `blog`  (
   `user_id` bigint NOT NULL,
   `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `blog_type` tinyint NOT NULL DEFAULT 0 COMMENT '0-normal blog, 1-problem solution',
+  `problem_id` bigint NULL DEFAULT NULL COMMENT 'linked problem id for solution blogs',
+  `view_count` int NOT NULL DEFAULT 0,
+  `like_count` int NOT NULL DEFAULT 0,
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `deleted` tinyint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_user_problem_type_deleted`(`user_id` ASC, `problem_id` ASC, `blog_type` ASC, `deleted` ASC) USING BTREE,
   INDEX `idx_user_id`(`user_id` ASC) USING BTREE,
+  INDEX `idx_problem_type`(`problem_id` ASC, `blog_type` ASC) USING BTREE,
   INDEX `idx_update_time`(`update_time` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 15125 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
@@ -56,9 +62,35 @@ CREATE TABLE `blog_comment`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `blog_picture`;
 CREATE TABLE `blog_picture`  (
-  `url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `blog_id` bigint NULL DEFAULT NULL,
+  `object_name` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `url` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `content_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `size` bigint NOT NULL,
+  `original_filename` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `deleted` tinyint NOT NULL DEFAULT 0,
-  PRIMARY KEY (`url`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_object_name`(`object_name` ASC) USING BTREE,
+  INDEX `idx_blog_id`(`blog_id` ASC) USING BTREE,
+  INDEX `idx_user_id`(`user_id` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for blog_like
+-- ----------------------------
+DROP TABLE IF EXISTS `blog_like`;
+CREATE TABLE `blog_like`  (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `blog_id` bigint NOT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` tinyint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_user_blog`(`user_id` ASC, `blog_id` ASC) USING BTREE,
+  INDEX `idx_blog_id`(`blog_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
