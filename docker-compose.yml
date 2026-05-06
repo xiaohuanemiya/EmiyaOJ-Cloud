@@ -1,5 +1,9 @@
 version: '3.8'
 
+x-java-env: &java-env
+  TZ: Asia/Shanghai
+  JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+
 services:
   # =====================================================
   # 基础设施
@@ -142,6 +146,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      <<: *java-env
       NACOS_ADDR: nacos:8848
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -162,6 +167,7 @@ services:
     ports:
       - "9010:9010"
     environment:
+      <<: *java-env
       NACOS_ADDR: nacos:8848
       MYSQL_HOST: mysql
       MYSQL_USER: root
@@ -187,6 +193,7 @@ services:
     ports:
       - "9020:9020"
     environment:
+      <<: *java-env
       NACOS_ADDR: nacos:8848
       MYSQL_HOST: mysql
       MYSQL_USER: root
@@ -212,6 +219,7 @@ services:
     ports:
       - "9030:9030"
     environment:
+      <<: *java-env
       NACOS_ADDR: nacos:8848
       MYSQL_HOST: mysql
       MYSQL_USER: root
@@ -240,6 +248,7 @@ services:
     ports:
       - "9040:9040"
     environment:
+      <<: *java-env
       NACOS_ADDR: nacos:8848
       MYSQL_HOST: mysql
       MYSQL_USER: root
@@ -279,6 +288,7 @@ services:
     ports:
       - "9050:9050"
     environment:
+      <<: *java-env
       NACOS_ADDR: nacos:8848
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -300,6 +310,7 @@ services:
     ports:
       - "9060:9060"
     environment:
+      <<: *java-env
       NACOS_ADDR: nacos:8848
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
