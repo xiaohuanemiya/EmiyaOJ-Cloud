@@ -12,6 +12,11 @@ spring:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
@@ -35,6 +40,8 @@ emiyaoj:
     secret-key: ${MINIO_SECRET_KEY:minioadmin}
     bucket: ${MINIO_BUCKET:blog-images}
     max-file-size: ${BLOG_IMAGE_MAX_FILE_SIZE:10485760}
+  moderation:
+    internal-token: ${MODERATION_INTERNAL_TOKEN:emiyaoj-moderation-internal}
 
 # SpringDoc OpenAPI 配置
 springdoc:

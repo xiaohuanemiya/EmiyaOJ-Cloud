@@ -28,6 +28,16 @@ public class BlogComment implements Serializable {
 
     private String content;
 
+    private Integer auditStatus;
+
+    private String auditTaskId;
+
+    private String auditReason;
+
+    private String auditLabels;
+
+    private LocalDateTime auditTime;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

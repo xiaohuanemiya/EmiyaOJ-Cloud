@@ -27,6 +27,7 @@
         <module>EmiyaOJ-Judge</module>
         <module>EmiyaOJ-Blog</module>
         <module>EmiyaOJ-Chat</module>
+        <module>EmiyaOJ-Moderation</module>
     </modules>
 
     <properties>
@@ -160,6 +161,17 @@
             <dependency>
                 <groupId>com.emiyaoj</groupId>
                 <artifactId>chat-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- Moderation module -->
+            <dependency>
+                <groupId>com.emiyaoj</groupId>
+                <artifactId>moderation-dto</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.emiyaoj</groupId>
+                <artifactId>moderation-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

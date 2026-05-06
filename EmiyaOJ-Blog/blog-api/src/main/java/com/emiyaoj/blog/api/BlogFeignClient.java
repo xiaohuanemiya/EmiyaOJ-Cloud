@@ -2,8 +2,11 @@ package com.emiyaoj.blog.api;
 
 import com.emiyaoj.blog.vo.BlogVO;
 import com.emiyaoj.common.domain.ResponseResult;
+import com.emiyaoj.moderation.dto.ModerationResultDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 
 /**
@@ -17,4 +20,7 @@ public interface BlogFeignClient {
      */
     @GetMapping("/blog/{bid}")
     ResponseResult<BlogVO> getBlogById(@PathVariable("bid") Long bid);
+
+    @PostMapping("/blog/internal/moderation/result")
+    ResponseResult<Void> applyModerationResult(@RequestBody ModerationResultDTO resultDTO);
 }

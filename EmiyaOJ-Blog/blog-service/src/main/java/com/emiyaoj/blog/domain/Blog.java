@@ -36,6 +36,16 @@ public class Blog implements Serializable {
 
     private Integer likeCount;
 
+    private Integer auditStatus;
+
+    private String auditTaskId;
+
+    private String auditReason;
+
+    private String auditLabels;
+
+    private LocalDateTime auditTime;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

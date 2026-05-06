@@ -15,6 +15,8 @@ public interface IUserBlogService {
 
     PageVO<BlogVO> selectUserBlogBlogs(UserBlogBlogsQueryDTO queryDTO);
 
+    PageVO<BlogVO> selectUserBlogBlogs(UserBlogBlogsQueryDTO queryDTO, Long viewerId, String permissions);
+
     PageVO<BlogVO> selectUserBlogStars(UserBlogStarsQueryDTO queryDTO);
 
     boolean starBlog(Long blogId, Long userId);

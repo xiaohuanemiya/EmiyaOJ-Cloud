@@ -41,6 +41,10 @@ public class BlogVO implements Serializable {
 
     private Boolean liked;
 
+    private Integer auditStatus;
+
+    private String auditReason;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

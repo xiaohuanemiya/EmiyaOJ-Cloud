@@ -1,6 +1,7 @@
 package com.emiyaoj.blog.controller;
 
 import com.emiyaoj.blog.dto.*;
+import com.emiyaoj.blog.config.BlogModerationProperties;
 import com.emiyaoj.blog.service.IBlogImageService;
 import com.emiyaoj.blog.service.IBlogService;
 import com.emiyaoj.blog.service.IUserBlogService;
@@ -8,6 +9,7 @@ import com.emiyaoj.blog.vo.*;
 import com.emiyaoj.common.domain.PageDTO;
 import com.emiyaoj.common.domain.PageVO;
 import com.emiyaoj.common.domain.ResponseResult;
+import com.emiyaoj.moderation.dto.ModerationResultDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +33,7 @@ public class BlogController {
     private final IUserBlogService userBlogService;
     private final IBlogService blogService;
     private final IBlogImageService blogImageService;
+    private final BlogModerationProperties blogModerationProperties;
 
     @Operation(summary = "List all blogs")
     @GetMapping("")
@@ -49,15 +52,17 @@ public class BlogController {
     @Operation(summary = "Query blogs")
     @PostMapping("/query")
     public ResponseResult<PageVO<BlogVO>> queryBlog(@RequestBody BlogQueryDTO blogQueryDTO,
-                                                    @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        return ResponseResult.success(blogService.select(blogQueryDTO, userId));
+                                                    @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId,
+                                                    @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+        return ResponseResult.success(blogService.select(blogQueryDTO, userId, permissions));
     }
 
     @Operation(summary = "Get blog detail")
     @GetMapping("/{bid}")
     public ResponseResult<BlogVO> getBlog(@Parameter(description = "Blog ID") @PathVariable Long bid,
-                                          @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        BlogVO vo = blogService.selectBlogById(bid, userId);
+                                          @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId,
+                                          @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+        BlogVO vo = blogService.selectBlogById(bid, userId, permissions);
         return vo != null ? ResponseResult.success(vo) : ResponseResult.fail(404, "未找到该博客");
     }
 
@@ -100,8 +105,10 @@ public class BlogController {
     @Operation(summary = "Query blog comments")
     @PostMapping("/{bid}/comments/query")
     public ResponseResult<PageVO<CommentVO>> selectCommentPage(@Parameter(description = "Blog ID") @PathVariable Long bid,
-                                                               @RequestBody PageDTO pageDTO) {
-        return ResponseResult.success(blogService.selectCommentPage(bid, pageDTO));
+                                                               @RequestBody PageDTO pageDTO,
+                                                               @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId,
+                                                               @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+        return ResponseResult.success(blogService.selectCommentPage(bid, pageDTO, userId, permissions));
     }
 
     @Operation(summary = "Add comment")
@@ -176,9 +183,11 @@ public class BlogController {
     @Operation(summary = "Query user's blogs")
     @PostMapping("/user/{uid}/blogs/query")
     public ResponseResult<PageVO<BlogVO>> userBlogBlogs(@Parameter(description = "User ID") @PathVariable Long uid,
-                                                        @RequestBody UserBlogBlogsQueryDTO blogsQueryDTO) {
+                                                        @RequestBody UserBlogBlogsQueryDTO blogsQueryDTO,
+                                                        @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long viewerId,
+                                                        @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
         blogsQueryDTO.setUserId(uid);
-        return ResponseResult.success(userBlogService.selectUserBlogBlogs(blogsQueryDTO));
+        return ResponseResult.success(userBlogService.selectUserBlogBlogs(blogsQueryDTO, viewerId, permissions));
     }
 
     @Operation(summary = "Query user's favorite blogs")
@@ -225,15 +234,53 @@ public class BlogController {
 
     @Operation(summary = "Query comments")
     @PostMapping("/comments/query")
-    public ResponseResult<List<CommentVO>> queryComments(@RequestBody CommentQueryDTO queryDTO) {
-        return ResponseResult.success(blogService.selectComment(queryDTO));
+    public ResponseResult<List<CommentVO>> queryComments(@RequestBody CommentQueryDTO queryDTO,
+                                                        @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId,
+                                                        @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+        return ResponseResult.success(blogService.selectComment(queryDTO, userId, permissions));
     }
 
     @Operation(summary = "Get comment")
     @GetMapping("/comments/{cid}")
-    public ResponseResult<CommentVO> getComment(@Parameter(description = "Comment ID") @PathVariable Long cid) {
-        CommentVO vo = blogService.selectCommentById(cid);
+    public ResponseResult<CommentVO> getComment(@Parameter(description = "Comment ID") @PathVariable Long cid,
+                                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long userId,
+                                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+        CommentVO vo = blogService.selectCommentById(cid, userId, permissions);
         return vo != null ? ResponseResult.success(vo) : ResponseResult.fail(404, "未找到该评论");
+    }
+
+    @Operation(summary = "Apply moderation result")
+    @PostMapping("/internal/moderation/result")
+    public ResponseResult<Void> applyModerationResult(@RequestBody ModerationResultDTO resultDTO,
+                                                      @Parameter(hidden = true) @RequestHeader(value = BlogModerationProperties.INTERNAL_TOKEN_HEADER, required = false) String token) {
+        if (!blogModerationProperties.getInternalToken().equals(token)) {
+            return ResponseResult.fail(403, "Forbidden");
+        }
+        return blogService.applyModerationResult(resultDTO)
+                ? ResponseResult.success()
+                : ResponseResult.fail(400, "Invalid moderation result");
+    }
+
+    @Operation(summary = "Manually update blog audit status")
+    @PutMapping("/moderation/blogs/{bid}/status")
+    public ResponseResult<Void> updateBlogAuditStatus(@PathVariable Long bid,
+                                                      @RequestParam Integer auditStatus,
+                                                      @RequestParam(required = false) String reason,
+                                                      @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+        return blogService.updateBlogAuditStatus(bid, auditStatus, reason, permissions)
+                ? ResponseResult.success()
+                : ResponseResult.fail("淇敼澶辫触");
+    }
+
+    @Operation(summary = "Manually update comment audit status")
+    @PutMapping("/moderation/comments/{cid}/status")
+    public ResponseResult<Void> updateCommentAuditStatus(@PathVariable Long cid,
+                                                         @RequestParam Integer auditStatus,
+                                                         @RequestParam(required = false) String reason,
+                                                         @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+        return blogService.updateCommentAuditStatus(cid, auditStatus, reason, permissions)
+                ? ResponseResult.success()
+                : ResponseResult.fail("淇敼澶辫触");
     }
 
     @Operation(summary = "Delete comment")

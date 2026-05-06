@@ -32,6 +32,8 @@ public class BlogQueryDTO implements Serializable {
 
     private LocalDateTime createTime;
 
+    private Integer auditStatus;
+
     @NotNull
     private Integer pageNo;
 
