@@ -7,12 +7,19 @@ import com.emiyaoj.problem.service.LanguageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 /**
- * 编程语言控制器
+ * 编程语言配置控制器。
  */
 @Tag(name = "编程语言管理")
 @RestController
@@ -22,29 +29,20 @@ public class LanguageController {
 
     private final LanguageService languageService;
 
-    /**
-     * 查询启用的编程语言列表（前台）
-     */
     @GetMapping("/list")
     @Operation(summary = "查询启用的编程语言列表")
     public ResponseResult<List<LanguageVO>> listEnabled() {
         return ResponseResult.success(languageService.listEnabled());
     }
 
-    /**
-     * 管理端查询全部编程语言（含禁用）
-     */
     @GetMapping("/admin/list")
     @Operation(summary = "管理端查询全部编程语言")
     public ResponseResult<List<LanguageVO>> listAll() {
         return ResponseResult.success(languageService.listAll());
     }
 
-    /**
-     * 根据 ID 查询语言详情（供 Feign 调用，仅返回启用语言）
-     */
     @GetMapping("/{id}")
-    @Operation(summary = "查询语言详情（仅启用语言）")
+    @Operation(summary = "查询启用的编程语言详情")
     public ResponseResult<LanguageVO> getById(@PathVariable Long id) {
         LanguageVO vo = languageService.getLanguageDetail(id);
         if (vo == null) {
@@ -53,11 +51,8 @@ public class LanguageController {
         return ResponseResult.success(vo);
     }
 
-    /**
-     * 管理端根据 ID 查询语言详情（不过滤状态）
-     */
     @GetMapping("/admin/{id}")
-    @Operation(summary = "管理端查询语言详情")
+    @Operation(summary = "管理端查询编程语言详情")
     public ResponseResult<LanguageVO> getAdminById(@PathVariable Long id) {
         LanguageVO vo = languageService.getAdminById(id);
         if (vo == null) {
@@ -66,9 +61,6 @@ public class LanguageController {
         return ResponseResult.success(vo);
     }
 
-    /**
-     * 新增编程语言
-     */
     @PostMapping
     @Operation(summary = "新增编程语言")
     public ResponseResult<LanguageVO> save(@RequestBody LanguageSaveDTO dto) {
@@ -76,19 +68,13 @@ public class LanguageController {
         return ResponseResult.success(vo);
     }
 
-    /**
-     * 更新编程语言信息
-     */
     @PutMapping
-    @Operation(summary = "更新编程语言信息")
+    @Operation(summary = "更新编程语言")
     public ResponseResult<Boolean> update(@RequestBody LanguageSaveDTO dto) {
         boolean result = languageService.updateLanguage(dto);
         return result ? ResponseResult.success(true) : ResponseResult.fail("更新失败");
     }
 
-    /**
-     * 启用编程语言
-     */
     @PutMapping("/{id}/enable")
     @Operation(summary = "启用编程语言")
     public ResponseResult<Boolean> enable(@PathVariable Long id) {
@@ -96,9 +82,6 @@ public class LanguageController {
         return result ? ResponseResult.success(true) : ResponseResult.fail("启用失败");
     }
 
-    /**
-     * 禁用编程语言
-     */
     @PutMapping("/{id}/disable")
     @Operation(summary = "禁用编程语言")
     public ResponseResult<Boolean> disable(@PathVariable Long id) {
@@ -106,11 +89,8 @@ public class LanguageController {
         return result ? ResponseResult.success(true) : ResponseResult.fail("禁用失败");
     }
 
-    /**
-     * 物理删除编程语言
-     */
     @DeleteMapping("/{id}")
-    @Operation(summary = "删除编程语言（物理删除）")
+    @Operation(summary = "删除编程语言")
     public ResponseResult<Boolean> delete(@PathVariable Long id) {
         boolean result = languageService.deleteLanguage(id);
         return result ? ResponseResult.success(true) : ResponseResult.fail("删除失败");

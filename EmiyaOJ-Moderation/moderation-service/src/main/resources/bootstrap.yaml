@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: moderation-service
+  cloud:
+    nacos:
+      server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+      discovery:
+        namespace: public
+      config:
+        namespace: public
+        file-extension: yaml
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}

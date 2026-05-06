@@ -20,6 +20,10 @@
         </dependency>
         <dependency>
             <groupId>com.emiyaoj</groupId>
+            <artifactId>moderation-dto</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.emiyaoj</groupId>
             <artifactId>emiyaoj-common</artifactId>
         </dependency>
         <dependency>

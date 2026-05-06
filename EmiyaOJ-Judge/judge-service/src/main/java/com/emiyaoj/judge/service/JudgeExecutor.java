@@ -1,9 +1,16 @@
 package com.emiyaoj.judge.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.emiyaoj.common.domain.ResponseResult;
+import com.emiyaoj.judge.domain.JudgeStatus;
 import com.emiyaoj.judge.domain.entity.Submission;
+import com.emiyaoj.judge.domain.entity.SubmissionCaseResult;
+import com.emiyaoj.judge.domain.entity.SubmissionJudgeResult;
 import com.emiyaoj.judge.domain.gojudge.GoJudgeResult;
 import com.emiyaoj.judge.domain.gojudge.GoJudgeStatus;
+import com.emiyaoj.judge.mapper.SubmissionCaseResultMapper;
+import com.emiyaoj.judge.mapper.SubmissionJudgeResultMapper;
 import com.emiyaoj.judge.mapper.SubmissionMapper;
 import com.emiyaoj.problem.api.ProblemFeignClient;
 import com.emiyaoj.problem.dto.LanguageVO;
@@ -15,12 +22,12 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 判题执行器 - 异步执行判题逻辑
- * 独立为单独的 Bean, 确保 @Async 代理生效
+ * 判题执行器，异步执行判题逻辑。
  */
 @Slf4j
 @Component
@@ -28,190 +35,196 @@ import java.util.Map;
 public class JudgeExecutor {
 
     private final SubmissionMapper submissionMapper;
+    private final SubmissionJudgeResultMapper judgeResultMapper;
+    private final SubmissionCaseResultMapper caseResultMapper;
     private final GoJudgeService goJudgeService;
     private final ProblemFeignClient problemFeignClient;
 
     /**
-     * 异步执行判题
+     * 异步执行判题。
      */
     @Async
     public void executeJudgeAsync(Long submissionId, Long problemId, Long languageId, String code) {
-        // 更新状态为判题中
         Submission submission = submissionMapper.selectById(submissionId);
         if (submission == null) {
             log.error("Submission not found: {}", submissionId);
             return;
         }
-        submission.setStatus(1); // 判题中
-        submission.setUpdateTime(LocalDateTime.now());
-        submissionMapper.updateById(submission);
+
+        updateJudgeStatus(submissionId, JudgeStatus.JUDGING);
+        clearCaseResults(submissionId);
+
+        Map<String, String> fileIds = null;
+        List<TestCaseVO> testCases = List.of();
+        List<SubmissionCaseResult> caseResults = new ArrayList<>();
 
         try {
-            // 获取语言信息
             ResponseResult<LanguageVO> langResult = problemFeignClient.getLanguageById(languageId);
             if (langResult == null || langResult.getData() == null) {
-                updateSubmissionError(submission, "获取语言信息失败");
+                updateSummary(submissionId, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "获取语言信息失败", null);
                 return;
             }
-            String languageName = langResult.getData().getName();
+            LanguageVO language = langResult.getData();
 
-            // 获取测试用例
             ResponseResult<List<TestCaseVO>> testCaseResult = problemFeignClient.getTestCasesByProblemId(problemId);
             if (testCaseResult == null || testCaseResult.getData() == null || testCaseResult.getData().isEmpty()) {
-                updateSubmissionError(submission, "获取测试用例失败或无测试用例");
+                updateSummary(submissionId, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "获取测试用例失败或无测试用例", null);
                 return;
             }
-            List<TestCaseVO> testCases = testCaseResult.getData();
+            testCases = testCaseResult.getData();
 
-            // 获取题目信息 (获取时间/内存限制)
             ResponseResult<ProblemVO> problemResult = problemFeignClient.getProblemById(problemId);
             ProblemVO problem = problemResult != null ? problemResult.getData() : null;
-            long timeLimit = problem != null && problem.getTimeLimit() != null ? problem.getTimeLimit() : 1000; // 毫秒
-            long memoryLimit = problem != null && problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256; // MB
+            long timeLimit = problem != null && problem.getTimeLimit() != null ? problem.getTimeLimit() : 1000;
+            long memoryLimit = problem != null && problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256;
 
-            // 编译
-            Map<String, String> fileIds = null;
-            if (!languageName.toLowerCase().contains("python")) {
-                GoJudgeResult compileResult = goJudgeService.compile(code, languageName);
+            if (language.getIsCompiled() == null || language.getIsCompiled() == 1) {
+                GoJudgeResult compileResult = goJudgeService.compile(code, language);
+                if (compileResult != null && !GoJudgeStatus.ACCEPTED.getValue().equals(compileResult.getStatus())) {
+                    String compileError = extractCompileError(compileResult);
+                    updateSummary(submissionId, testCases, caseResults, JudgeStatus.COMPILE_ERROR, null, compileError);
+                    return;
+                }
                 if (compileResult != null) {
-                    if (!GoJudgeStatus.ACCEPTED.getValue().equals(compileResult.getStatus())) {
-                        String compileError = "";
-                        if (compileResult.getFiles() != null) {
-                            compileError = compileResult.getFiles().getOrDefault("stderr", "");
-                        }
-                        if (compileError.isEmpty() && compileResult.getError() != null) {
-                            compileError = compileResult.getError();
-                        }
-                        updateSubmissionCompileError(submission, compileError);
-                        return;
-                    }
                     fileIds = compileResult.getFileIds();
                 }
             }
 
-            // 逐个运行测试用例
-            int passCount = 0;
-            long maxTime = 0;
-            long maxMemory = 0;
-            int judgeStatus = 2;  // 默认 AC
-            String errorMsg = null;
+            boolean weightedScore = JudgeResultCalculator.useWeightedScore(testCases);
+            Integer forcedStatus = null;
+            String errorMessage = null;
 
-            for (TestCaseVO testCase : testCases) {
-                GoJudgeResult runResult = goJudgeService.run(languageName, fileIds, code, testCase, timeLimit, memoryLimit);
+            for (int i = 0; i < testCases.size(); i++) {
+                TestCaseVO testCase = testCases.get(i);
+                GoJudgeResult runResult = goJudgeService.run(language, fileIds, code, testCase, timeLimit, memoryLimit);
+                SubmissionCaseResult caseResult = buildBaseCaseResult(submissionId, testCase, i + 1, runResult);
 
                 if (runResult == null) {
-                    judgeStatus = 4; // SE
-                    errorMsg = "运行无返回结果";
+                    JudgeResultCalculator.CaseFailure failure = JudgeResultCalculator.mapExecutionFailure(null);
+                    caseResult.setStatus(failure.status());
+                    caseResult.setErrorMessage(failure.message());
+                    forcedStatus = failure.status();
+                    errorMessage = failure.message();
+                    saveCaseResult(caseResult, caseResults);
                     break;
                 }
 
-                // 记录资源使用
-                if (runResult.getTime() != null) {
-                    maxTime = Math.max(maxTime, runResult.getTime() / 1_000_000); // 纳秒 -> 毫秒
-                }
-                if (runResult.getMemory() != null) {
-                    maxMemory = Math.max(maxMemory, runResult.getMemory() / 1024); // 字节 -> KB
-                }
-
                 if (!GoJudgeStatus.ACCEPTED.getValue().equals(runResult.getStatus())) {
-                    GoJudgeStatus goStatus = GoJudgeStatus.fromValue(runResult.getStatus());
-                    switch (goStatus) {
-                        case TIME_LIMIT_EXCEEDED -> {
-                            judgeStatus = 6; // TLE
-                            errorMsg = "Time Limit Exceeded";
-                        }
-                        case MEMORY_LIMIT_EXCEEDED -> {
-                            judgeStatus = 7; // MLE
-                            errorMsg = "Memory Limit Exceeded";
-                        }
-                        case NONZERO_EXIT_STATUS, SIGNALLED -> {
-                            judgeStatus = 8; // RE
-                            errorMsg = "Runtime Error";
-                            if (runResult.getFiles() != null) {
-                                String stderr = runResult.getFiles().getOrDefault("stderr", "");
-                                if (!stderr.isBlank()) {
-                                    errorMsg = "Runtime Error: " + stderr.substring(0, Math.min(stderr.length(), 500));
-                                }
-                            }
-                        }
-                        case OUTPUT_LIMIT_EXCEEDED -> {
-                            judgeStatus = 9; // OLE
-                            errorMsg = "Output Limit Exceeded";
-                        }
-                        default -> {
-                            judgeStatus = 4; // SE
-                            errorMsg = runResult.getStatus();
-                        }
-                    }
-                    break; // 遇到错误立即终止后续用例
+                    JudgeResultCalculator.CaseFailure failure = JudgeResultCalculator.mapExecutionFailure(runResult);
+                    caseResult.setStatus(failure.status());
+                    caseResult.setErrorMessage(failure.message());
+                    forcedStatus = failure.status();
+                    errorMessage = failure.message();
+                    saveCaseResult(caseResult, caseResults);
+                    break;
                 }
 
-                // 比较输出
-                String actualOutput = runResult.getFiles() != null
-                        ? runResult.getFiles().getOrDefault("stdout", "").trim()
-                        : "";
-                String expectedOutput = testCase.getOutput() != null
-                        ? testCase.getOutput().trim()
-                        : "";
-
-                if (actualOutput.equals(expectedOutput)) {
-                    passCount++;
-                } else {
-                    // 记录第一次答案错误，但继续运行剩余用例以计算通过率
-                    if (judgeStatus == 2) {
-                        judgeStatus = 5; // WA
-                        errorMsg = "Wrong Answer";
-                    }
+                boolean accepted = outputAccepted(runResult, testCase);
+                caseResult.setStatus(accepted ? JudgeStatus.ACCEPTED : JudgeStatus.WRONG_ANSWER);
+                caseResult.setScore(JudgeResultCalculator.awardedCaseScore(testCase, weightedScore, accepted));
+                if (!accepted && errorMessage == null) {
+                    errorMessage = "Wrong Answer";
                 }
+                saveCaseResult(caseResult, caseResults);
             }
 
-            // 清理缓存文件
+            SubmissionJudgeResult summary = updateSummary(submissionId, testCases, caseResults, forcedStatus, errorMessage, null);
+            if (summary.getStatus() == JudgeStatus.PARTIAL_ACCEPTED) {
+                summary.setErrorMessage("Partial Accepted (" + summary.getPassedCaseCount() + "/" + summary.getTotalCaseCount() + ")");
+                updateSummaryById(summary);
+            }
+
+            log.info("Judge complete: submissionId={}, score={}, passed={}/{}",
+                    submissionId, summary.getScore(), summary.getPassedCaseCount(), summary.getTotalCaseCount());
+        } catch (Exception e) {
+            log.error("Judge failed for submission: {}", submissionId, e);
+            updateSummary(submissionId, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "系统错误: " + e.getMessage(), null);
+        } finally {
             if (fileIds != null) {
                 fileIds.values().forEach(goJudgeService::deleteFile);
             }
-
-            // 计算结果
-            double passRate = testCases.isEmpty() ? 0 : (double) passCount / testCases.size();
-            int score = (int) Math.round(passRate * 100);
-
-            // 部分通过: 有通过的用例但未全部通过 (WA 状态下)
-            if (judgeStatus == 5 && passCount > 0) {
-                judgeStatus = 10; // PA
-                errorMsg = "Partial Accepted (" + passCount + "/" + testCases.size() + ")";
-            }
-
-            submission.setStatus(judgeStatus);
-            submission.setScore(score);
-            submission.setTimeUsed(maxTime);
-            submission.setMemoryUsed(maxMemory);
-            submission.setPassRate(passRate);
-            submission.setErrorMessage(errorMsg);
-            submission.setUpdateTime(LocalDateTime.now());
-            submissionMapper.updateById(submission);
-
-            log.info("Judge complete: submissionId={}, score={}, passRate={}", submissionId, score, passRate);
-
-        } catch (Exception e) {
-            log.error("Judge failed for submission: {}", submissionId, e);
-            updateSubmissionError(submission, "系统错误: " + e.getMessage());
         }
     }
 
-    private void updateSubmissionError(Submission submission, String errorMessage) {
-        submission.setStatus(4); // 系统错误
-        submission.setErrorMessage(errorMessage);
-        submission.setScore(0);
-        submission.setPassRate(0.0);
-        submission.setUpdateTime(LocalDateTime.now());
-        submissionMapper.updateById(submission);
+    private SubmissionCaseResult buildBaseCaseResult(Long submissionId, TestCaseVO testCase, int caseOrder,
+                                                     GoJudgeResult runResult) {
+        SubmissionCaseResult result = new SubmissionCaseResult();
+        result.setSubmissionId(submissionId);
+        result.setTestCaseId(testCase.getId());
+        result.setCaseOrder(caseOrder);
+        result.setStatus(JudgeStatus.SYSTEM_ERROR);
+        result.setScore(0);
+        result.setTimeUsed(runResult != null && runResult.getTime() != null ? runResult.getTime() / 1_000_000 : 0L);
+        result.setMemoryUsed(runResult != null && runResult.getMemory() != null ? runResult.getMemory() / 1024 : 0L);
+        return result;
     }
 
-    private void updateSubmissionCompileError(Submission submission, String compileMessage) {
-        submission.setStatus(3); // 编译错误
-        submission.setCompileMessage(compileMessage);
-        submission.setScore(0);
-        submission.setPassRate(0.0);
-        submission.setUpdateTime(LocalDateTime.now());
-        submissionMapper.updateById(submission);
+    private void saveCaseResult(SubmissionCaseResult caseResult, List<SubmissionCaseResult> caseResults) {
+        caseResultMapper.insert(caseResult);
+        caseResults.add(caseResult);
+    }
+
+    private SubmissionJudgeResult updateSummary(Long submissionId, List<TestCaseVO> testCases,
+                                                List<SubmissionCaseResult> caseResults, Integer forcedStatus,
+                                                String errorMessage, String compileMessage) {
+        SubmissionJudgeResult summary = JudgeResultCalculator.buildSummary(
+                submissionId, testCases, caseResults, forcedStatus, errorMessage, compileMessage);
+        updateSummaryBySubmissionId(summary);
+        return summary;
+    }
+
+    private void updateJudgeStatus(Long submissionId, int status) {
+        SubmissionJudgeResult result = new SubmissionJudgeResult();
+        result.setStatus(status);
+        result.setUpdateTime(LocalDateTime.now());
+        judgeResultMapper.update(result, new LambdaUpdateWrapper<SubmissionJudgeResult>()
+                .eq(SubmissionJudgeResult::getSubmissionId, submissionId));
+    }
+
+    private void updateSummaryBySubmissionId(SubmissionJudgeResult summary) {
+        summary.setUpdateTime(LocalDateTime.now());
+        judgeResultMapper.update(summary, new LambdaUpdateWrapper<SubmissionJudgeResult>()
+                .eq(SubmissionJudgeResult::getSubmissionId, summary.getSubmissionId()));
+    }
+
+    private void updateSummaryById(SubmissionJudgeResult summary) {
+        SubmissionJudgeResult current = selectJudgeResult(summary.getSubmissionId());
+        if (current == null) {
+            updateSummaryBySubmissionId(summary);
+            return;
+        }
+        summary.setId(current.getId());
+        summary.setUpdateTime(LocalDateTime.now());
+        judgeResultMapper.updateById(summary);
+    }
+
+    private SubmissionJudgeResult selectJudgeResult(Long submissionId) {
+        return judgeResultMapper.selectOne(new LambdaQueryWrapper<SubmissionJudgeResult>()
+                .eq(SubmissionJudgeResult::getSubmissionId, submissionId)
+                .last("LIMIT 1"));
+    }
+
+    private void clearCaseResults(Long submissionId) {
+        caseResultMapper.delete(new LambdaQueryWrapper<SubmissionCaseResult>()
+                .eq(SubmissionCaseResult::getSubmissionId, submissionId));
+    }
+
+    private String extractCompileError(GoJudgeResult compileResult) {
+        String compileError = "";
+        if (compileResult.getFiles() != null) {
+            compileError = compileResult.getFiles().getOrDefault("stderr", "");
+        }
+        if (compileError.isEmpty() && compileResult.getError() != null) {
+            compileError = compileResult.getError();
+        }
+        return compileError;
+    }
+
+    private boolean outputAccepted(GoJudgeResult runResult, TestCaseVO testCase) {
+        String actualOutput = runResult.getFiles() != null
+                ? runResult.getFiles().getOrDefault("stdout", "").trim()
+                : "";
+        String expectedOutput = testCase.getOutput() != null ? testCase.getOutput().trim() : "";
+        return actualOutput.equals(expectedOutput);
     }
 }

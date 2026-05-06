@@ -29,7 +29,7 @@ spring:
         - id: problem-service
           uri: lb://problem-service
           predicates:
-            - Path=/problem/**,/tag/**,/test-case/**,/language/**
+            - Path=/problem/**,/tag/**,/test-case/**,/language/**,/problem-set/**,/contest/**
 
         # ========== 判题服务 ==========
         - id: judge-service

@@ -28,9 +28,28 @@ public class BlogVO implements Serializable {
 
     private String content;
 
+    private Integer blogType;
+
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long problemId;
+
+    private String problemTitle;
+
+    private Integer viewCount;
+
+    private Integer likeCount;
+
+    private Boolean liked;
+
+    private Integer auditStatus;
+
+    private String auditReason;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
 
     private List<BlogTagVO> tags;
+
+    private List<BlogPictureVO> pictures;
 }

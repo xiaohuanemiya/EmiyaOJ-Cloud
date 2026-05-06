@@ -16,4 +16,6 @@ public class CommentQueryDTO implements Serializable {
     private LocalDateTime fromDay;
 
     private LocalDateTime toDay;
+
+    private Integer auditStatus;
 }

@@ -45,6 +45,48 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: emiyaoj-rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      TZ: Asia/Shanghai
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - emiyaoj-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: emiyaoj-minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - emiyaoj-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   nacos:
     image: nacos/nacos-server:v2.5.1
     container_name: emiyaoj-nacos
@@ -202,12 +244,26 @@ services:
       MYSQL_PASSWORD: root
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://127.0.0.1:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: blog-images
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      MODERATION_INTERNAL_TOKEN: ${MODERATION_INTERNAL_TOKEN:-emiyaoj-moderation-internal}
     depends_on:
       mysql:
         condition: service_healthy
       nacos:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - emiyaoj-network
@@ -233,9 +289,38 @@ services:
     networks:
       - emiyaoj-network
 
+  moderation-service:
+    build:
+      context: ./EmiyaOJ-Moderation
+      dockerfile: Dockerfile
+    container_name: emiyaoj-moderation-service
+    restart: always
+    ports:
+      - "9060:9060"
+    environment:
+      NACOS_ADDR: nacos:8848
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      MODERATION_INTERNAL_TOKEN: ${MODERATION_INTERNAL_TOKEN:-emiyaoj-moderation-internal}
+      ALIBABA_CLOUD_ACCESS_KEY_ID: ${ALIBABA_CLOUD_ACCESS_KEY_ID}
+      ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET}
+    depends_on:
+      nacos:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      blog-service:
+        condition: service_started
+    networks:
+      - emiyaoj-network
+
 volumes:
   mysql-data:
   redis-data:
+  minio-data:
+  rabbitmq-data:
 
 networks:
   emiyaoj-network:

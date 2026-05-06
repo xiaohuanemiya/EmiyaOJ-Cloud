@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.emiyaoj.blog.domain.Blog;
 import com.emiyaoj.blog.domain.BlogStar;
 import com.emiyaoj.blog.domain.UserBlog;
+import com.emiyaoj.blog.config.BlogModerationProperties;
 import com.emiyaoj.blog.dto.UserBlogBlogsQueryDTO;
 import com.emiyaoj.blog.dto.UserBlogStarsQueryDTO;
 import com.emiyaoj.blog.mapper.BlogMapper;
@@ -16,6 +17,7 @@ import com.emiyaoj.blog.service.IUserBlogService;
 import com.emiyaoj.blog.vo.BlogVO;
 import com.emiyaoj.blog.vo.UserBlogVO;
 import com.emiyaoj.common.domain.PageVO;
+import com.emiyaoj.moderation.dto.AuditStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -50,11 +52,18 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
 
     @Override
     public PageVO<BlogVO> selectUserBlogBlogs(UserBlogBlogsQueryDTO queryDTO) {
+        return selectUserBlogBlogs(queryDTO, null, null);
+    }
+
+    @Override
+    public PageVO<BlogVO> selectUserBlogBlogs(UserBlogBlogsQueryDTO queryDTO, Long viewerId, String permissions) {
         Page<Blog> page = new Page<>(queryDTO.getPageNo(), queryDTO.getPageSize());
-        blogMapper.selectPage(page, new LambdaQueryWrapper<Blog>()
+        LambdaQueryWrapper<Blog> wrapper = new LambdaQueryWrapper<Blog>()
                 .eq(Blog::getUserId, queryDTO.getUserId())
                 .eq(Blog::getDeleted, 0)
-                .orderByDesc(Blog::getUpdateTime));
+                .orderByDesc(Blog::getUpdateTime);
+        applyAuditVisibility(wrapper, queryDTO, viewerId, permissions);
+        blogMapper.selectPage(page, wrapper);
         return PageVO.of(page, this::convertBlogToVO);
     }
 
@@ -71,7 +80,10 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
             return PageVO.empty((long) queryDTO.getPageNo(), (long) queryDTO.getPageSize());
         }
 
-        List<Blog> blogs = blogMapper.selectByIds(blogIds);
+        List<Blog> blogs = blogMapper.selectByIds(blogIds).stream()
+                .filter(blog -> Integer.valueOf(0).equals(blog.getDeleted()))
+                .filter(blog -> Integer.valueOf(AuditStatus.APPROVED.getCode()).equals(blog.getAuditStatus()))
+                .toList();
         List<BlogVO> blogVOs = blogs.stream().map(this::convertBlogToVO).toList();
 
         return new PageVO<>(page.getTotal(), blogVOs, page.getCurrent(), page.getSize());
@@ -80,7 +92,8 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
     @Override
     public boolean starBlog(Long blogId, Long userId) {
         Blog blog = blogMapper.selectById(blogId);
-        if (blog == null || blog.getDeleted() == 1) return false;
+        if (blog == null || blog.getDeleted() == 1
+                || !Integer.valueOf(AuditStatus.APPROVED.getCode()).equals(blog.getAuditStatus())) return false;
 
         // 尝试恢复旧记录
         int update = blogStarMapper.update(new LambdaUpdateWrapper<BlogStar>()
@@ -108,5 +121,33 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
         BlogVO blogVO = new BlogVO();
         BeanUtils.copyProperties(blog, blogVO);
         return blogVO;
+    }
+
+    private void applyAuditVisibility(LambdaQueryWrapper<Blog> wrapper,
+                                      UserBlogBlogsQueryDTO queryDTO,
+                                      Long viewerId,
+                                      String permissions) {
+        boolean manager = isModerationManager(permissions);
+        boolean owner = viewerId != null && viewerId.equals(queryDTO.getUserId());
+        if (manager) {
+            wrapper.eq(queryDTO.getAuditStatus() != null, Blog::getAuditStatus, queryDTO.getAuditStatus());
+            wrapper.eq(queryDTO.getAuditStatus() == null, Blog::getAuditStatus, AuditStatus.APPROVED.getCode());
+        } else if (owner && queryDTO.getAuditStatus() != null) {
+            wrapper.eq(Blog::getAuditStatus, queryDTO.getAuditStatus());
+        } else {
+            wrapper.eq(Blog::getAuditStatus, AuditStatus.APPROVED.getCode());
+        }
+    }
+
+    private boolean isModerationManager(String permissions) {
+        if (!org.springframework.util.StringUtils.hasText(permissions)) {
+            return false;
+        }
+        for (String permission : permissions.split(",")) {
+            if (BlogModerationProperties.MANAGE_PERMISSION.equals(permission.trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

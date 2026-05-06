@@ -1,12 +1,14 @@
 package com.emiyaoj.problem.api;
 
 import com.emiyaoj.common.domain.ResponseResult;
+import com.emiyaoj.problem.dto.ContestSubmitCheckVO;
 import com.emiyaoj.problem.dto.ProblemVO;
 import com.emiyaoj.problem.dto.TestCaseVO;
 import com.emiyaoj.problem.dto.LanguageVO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
@@ -33,4 +35,9 @@ public interface ProblemFeignClient {
      */
     @GetMapping("/language/{id}")
     ResponseResult<LanguageVO> getLanguageById(@PathVariable("id") Long id);
+
+    @GetMapping("/contest/internal/{id}/submit-check")
+    ResponseResult<ContestSubmitCheckVO> checkContestSubmit(@PathVariable("id") Long id,
+                                                            @RequestParam("problemId") Long problemId,
+                                                            @RequestParam("userId") Long userId);
 }

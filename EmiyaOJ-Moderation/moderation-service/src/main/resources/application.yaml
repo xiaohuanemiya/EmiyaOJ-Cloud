@@ -1,0 +1,30 @@
+server:
+  port: 9060
+
+spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 5
+
+emiyaoj:
+  moderation:
+    endpoint: ${ALIYUN_MODERATION_ENDPOINT:imageaudit.cn-shanghai.aliyuncs.com}
+    internal-token: ${MODERATION_INTERNAL_TOKEN:emiyaoj-moderation-internal}
+    max-callback-retries: ${MODERATION_CALLBACK_RETRIES:3}
+    callback-retry-interval-millis: ${MODERATION_CALLBACK_RETRY_INTERVAL:1000}
+
+logging:
+  level:
+    com.emiyaoj: DEBUG
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs

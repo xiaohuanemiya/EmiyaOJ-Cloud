@@ -5,21 +5,23 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
- * 修改博客基本信息 DTO
+ * Blog edit DTO.
  */
 @Data
 public class BlogEditDTO implements Serializable {
 
-    /** 博客id */
     private Long id;
 
-    @NotBlank(message = "标题不能为空")
-    @Size(max = 50, message = "标题长度不能超过50个字符")
+    @NotBlank(message = "title must not be blank")
+    @Size(max = 50, message = "title length must not exceed 50")
     private String title;
 
-    @NotBlank(message = "内容不能为空")
-    @Size(max = 10000, message = "内容长度不能超过10000个字符")
+    @NotBlank(message = "content must not be blank")
+    @Size(max = 10000, message = "content length must not exceed 10000")
     private String content;
+
+    private List<Long> pictureIds;
 }

@@ -105,7 +105,7 @@ public class TestCaseService extends ServiceImpl<TestCaseMapper, TestCase> {
         if (ids == null || ids.isEmpty()) {
             return false;
         }
-        return this.removeByIds(ids);
+        return this.getBaseMapper().deleteBatchIds(ids) > 0;
     }
 
     /**

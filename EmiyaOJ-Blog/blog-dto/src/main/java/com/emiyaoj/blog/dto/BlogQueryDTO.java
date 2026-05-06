@@ -20,7 +20,19 @@ public class BlogQueryDTO implements Serializable {
     @Size(max = 50, message = "标题长度不能超过50个字符")
     private String title;
 
+    /** 0 normal blog, 1 problem solution. */
+    private Integer blogType;
+
+    private Long problemId;
+
+    private Long tagId;
+
+    /** createTime, updateTime, viewCount, likeCount. */
+    private String sortBy;
+
     private LocalDateTime createTime;
+
+    private Integer auditStatus;
 
     @NotNull
     private Integer pageNo;

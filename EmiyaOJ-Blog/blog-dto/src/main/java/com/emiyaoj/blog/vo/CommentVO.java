@@ -29,6 +29,10 @@ public class CommentVO implements Serializable {
 
     private String content;
 
+    private Integer auditStatus;
+
+    private String auditReason;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

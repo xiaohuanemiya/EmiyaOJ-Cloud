@@ -23,4 +23,6 @@ public class UserBlogBlogsQueryDTO implements Serializable {
 
     @NotNull
     private Integer pageSize;
+
+    private Integer auditStatus;
 }
