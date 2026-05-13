@@ -176,12 +176,16 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteBlogById(Long blogId) {
+        Blog blog = getById(blogId);
+        if (blog == null) {
+            return false;
+        }
         blogTagAssociationMapper.delete(
                 new LambdaQueryWrapper<BlogTagAssociation>().eq(BlogTagAssociation::getBlogId, blogId));
         blogPictureMapper.update(new LambdaUpdateWrapper<BlogPicture>()
                 .eq(BlogPicture::getBlogId, blogId)
                 .set(BlogPicture::getBlogId, null));
-        return this.updateById(new Blog().setId(blogId).setUpdateTime(LocalDateTime.now()).setDeleted(1));
+        return this.removeById(blogId);
     }
 
     @Override

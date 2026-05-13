@@ -51,5 +51,6 @@ public class Blog implements Serializable {
 
     private LocalDateTime updateTime;
 
+    @TableLogic
     private Integer deleted;
 }
