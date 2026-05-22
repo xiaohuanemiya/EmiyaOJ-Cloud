@@ -1,0 +1,461 @@
+@startuml EmiyaOJ-Cloud-Blog-Moderation-Sequence
+
+' ============================================================
+' EmiyaOJ-Cloud 博客发布与内容审核流程 — 分析级时序图 (UML 2.5 规范)
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 11
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 230
+skinparam ParticipantPadding 25
+skinparam BoxPadding 18
+skinparam noteBackgroundColor #FFFDE7
+
+title **EmiyaOJ-Cloud 博客发布与内容审核流程 — 分析级时序图**\n(UML 2.5 规范 · RabbitMQ 异步审核 · 阿里云 + 人工双重审核)
+
+' ====== 参与者定义 ======
+
+actor "用户\n(博主/评论者)" as User
+actor "审核管理员\n(Moderator)" as Admin
+
+box "API 网关层 (Port 8080)" #LightSteelBlue
+    participant "AuthGlobalFilter\n(全局认证过滤器)" as Gateway
+end box
+
+box "博客服务 Blog-Service (Port 9040)" #LightCyan
+    participant "BlogController\n(博客控制器)" as BlogCtrl
+    participant "BlogServiceImpl\n(博客业务服务)" as BlogSvc
+    participant "ModerationTaskPublisher\n(审核任务发布者)" as MqPublisher
+    participant "BlogCommentMapper\n(评论 Mapper)" as CommentMapper
+end box
+
+box "消息队列 RabbitMQ" #MistyRose
+    participant "Topic Exchange\nemiyaoj.moderation.exchange" as Exchange
+    participant "Blog Text Queue\nmoderation.blog.text" as BlogQueue
+    participant "Comment Text Queue\nmoderation.comment.text" as CommentQueue
+    participant "Dead Letter Queue\n(DLQ)" as DLQ
+end box
+
+box "审核服务 Moderation-Service" #Lavender
+    participant "ModerationTaskConsumer\n(@RabbitListener)" as Consumer
+    participant "TextModerationService\n(文本审核服务)" as TextModSvc
+    participant "AliyunImageAuditClient\n(阿里云 SDK)" as AliyunClient
+    participant "BlogFeignClient\n(Feign 回调)" as BlogFeign
+end box
+
+box "阿里云" #LightSalmon
+    participant "阿里云\n内容审核 API\n(imageaudit.aliyuncs.com)" as AliyunAPI
+end box
+
+box "数据持久层" #LightYellow
+    database "MySQL\n(emiya_oj_blog)" as MySQL
+end box
+
+' ============================================================
+' 阶段一：用户发布博客 (POST /blog)
+' ============================================================
+
+== 📝 阶段一：用户发布博客 (POST /blog · 同步保存 + 异步审核) ==
+
+User -> Gateway : POST /blog\n{ title, content, blogType, problemId?, tagIds, pictureIds }
+activate Gateway
+note right of Gateway : Authorization: Bearer {JWT}\nX-User-Id 由网关注入
+
+Gateway -> BlogCtrl : 路由转发\nHeaders: X-User-Id, X-User-Roles
+deactivate Gateway
+activate BlogCtrl
+
+BlogCtrl -> BlogSvc : saveBlog(BlogSaveDTO, userId)
+activate BlogSvc
+
+' === 验证博客类型 ===
+alt blogType == SOLUTION (题解)
+    BlogSvc -> BlogSvc : 题解必须关联题目\n若无 problemId → 400
+    BlogSvc -> BlogSvc : 检查是否存在已有题解\n若存在 → 更新已有题解内容
+end
+
+' === 创建博客实体 ===
+BlogSvc -> BlogSvc : createBlog(saveDTO, userId)\n构建 Blog 实体:
+note right of BlogSvc : • userId, title, content\n• blogType (0-普通 / 1-题解)\n• problemId (题解时关联)\n• viewCount=0, likeCount=0
+
+' === 审核前置准备 ===
+BlogSvc -> BlogSvc : prepareForAudit(blog)\n• auditStatus = PENDING(0)\n• auditTaskId = UUID(去横线)\n• auditReason = ""\n• auditLabels = ""
+
+' === 持久化到 MySQL ===
+BlogSvc -> MySQL : INSERT INTO blog\n(userId, title, content, blogType, problemId,\n auditStatus, auditTaskId, auditReason, ...)
+activate MySQL
+MySQL --> BlogSvc : blogId
+deactivate MySQL
+
+' === 关联标签 ===
+opt tagIds 不为空
+    BlogSvc -> MySQL : DELETE blog_tag_association WHERE blogId=?\n验证标签存在性\nINSERT blog_tag_association (blogId, tagId)
+    activate MySQL
+    MySQL --> BlogSvc : OK
+    deactivate MySQL
+end
+
+' === 绑定图片 ===
+opt pictureIds 不为空
+    BlogSvc -> MySQL : UPDATE blog_picture SET blogId=?\nWHERE id IN (pictureIds)\n(验证图片属于当前用户)
+    activate MySQL
+    MySQL --> BlogSvc : OK
+    deactivate MySQL
+end
+
+' === 发布审核任务到消息队列 ===
+BlogSvc -> BlogSvc : submitBlogModeration(blog)\n构建 ModerationTaskMessage:\n{ taskId, targetType=BLOG, targetId,\n  userId, title, content }
+
+BlogSvc -> MqPublisher : publishBlog(message)
+activate MqPublisher
+
+MqPublisher -> Exchange : rabbitTemplate.convertAndSend(\n  "emiyaoj.moderation.exchange",\n  "moderation.blog.text", message)
+activate Exchange
+
+alt RabbitMQ 发布成功
+    Exchange --> MqPublisher : true
+    deactivate Exchange
+    MqPublisher --> BlogSvc : true
+    deactivate MqPublisher
+    note right of BlogSvc : 审核任务已入队\n异步处理，不阻塞用户
+else RabbitMQ 发布失败 (异常)
+    Exchange --> MqPublisher : throw Exception
+    deactivate Exchange
+    MqPublisher --> BlogSvc : false
+    deactivate MqPublisher
+    BlogSvc -> BlogSvc : markBlogManualReview()\n• auditStatus = MANUAL_REVIEW(3)\n• auditReason = "MQ发布失败"
+    BlogSvc -> MySQL : UPDATE blog SET\n  auditStatus=3(MANUAL_REVIEW),\n  auditReason="MQ发布失败"
+    activate MySQL
+    MySQL --> BlogSvc : OK
+    deactivate MySQL
+    note right of BlogSvc : 降级为人工审核\n管理员稍后手动处理
+end
+
+BlogSvc --> BlogCtrl : true
+deactivate BlogSvc
+
+BlogCtrl --> User : ResponseResult.success()\n博客已发布，审核中
+deactivate BlogCtrl
+
+' ============================================================
+' 阶段二：异步消费 + 阿里云自动审核
+' ============================================================
+
+== 🤖 阶段二：异步审核消费 + 阿里云内容检测 (Moderation-Service) ==
+
+Exchange -> BlogQueue : 路由消息\nroutingKey: moderation.blog.text
+activate BlogQueue
+
+BlogQueue -> Consumer : @RabbitListener 投递\nModerationTaskMessage
+deactivate BlogQueue
+activate Consumer
+note right of Consumer : Spring AMQP 自动反序列化
+
+Consumer -> TextModSvc : moderate(taskMessage)
+activate TextModSvc
+
+' === 构建待审核文本 ===
+TextModSvc -> TextModSvc : buildText(message)\n拼接: "title: {title}\ncontent: {content}"
+
+alt 文本为空
+    TextModSvc -> TextModSvc : 直接返回 APPROVED(1)\nreason: "Empty text"
+else 文本非空
+    ' === 构建阿里云请求 ===
+    TextModSvc -> TextModSvc : buildRequest(text)\n构建 ScanTextRequest:\n• tasks: [{ content: text }]\n• labels: [spam, politics, abuse,\n  terrorism, porn, flood,\n  contraband, ad]
+
+    ' === 调用阿里云 API ===
+    TextModSvc -> AliyunClient : scanTextWithOptions(request, runtime)
+    activate AliyunClient
+
+    AliyunClient -> AliyunAPI : HTTPS POST\nScanText API
+    activate AliyunAPI
+
+    AliyunAPI -> AliyunAPI : 阿里云内容安全引擎\n• NLP 语义分析\n• 违规关键词匹配\n• 上下文语境判断\n→ 多维度检测: 8 类标签
+
+    AliyunAPI --> AliyunClient : ScanTextResponse\n{ Data: { Elements: [{ Results: [...] }] } }
+    deactivate AliyunAPI
+
+    AliyunClient --> TextModSvc : ScanTextResponse
+    deactivate AliyunClient
+
+    ' === 解析审核结果 ===
+    TextModSvc -> TextModSvc : parseResponse(message, response)\n遍历 Results 数组:
+
+    alt 任一标签 suggestion = "block"
+        TextModSvc -> TextModSvc : hasBlock = true\n判定: REJECTED(2)
+        note right: 命中违规标签\n如: spam/politics/porn/abuse
+    else 任一标签 suggestion = "review" 或 无明确结果
+        TextModSvc -> TextModSvc : hasReview = true\n判定: MANUAL_REVIEW(3)
+        note right: 疑似违规，需人工复核
+    else 所有标签 suggestion = "pass"
+        TextModSvc -> TextModSvc : 判定: APPROVED(1)
+        note right: 内容安全，通过审核
+    end
+
+    TextModSvc -> TextModSvc : 构建 ModerationResultDTO:\n{ taskId, targetType, targetId,\n  auditStatus, suggestion, labels, reason }
+end
+
+deactivate TextModSvc
+
+' ============================================================
+' 阶段三：回调博客服务 + 重试机制
+' ============================================================
+
+== 🔄 阶段三：Feign 回调博客服务 (含重试机制) ==
+
+Consumer -> Consumer : callbackWithRetry(resultDTO)\n最大重试: 3 次 · 间隔: 1000ms
+
+loop attempt = 1 to 3   (回调重试循环)
+    Consumer -> BlogFeign : applyModerationResult(resultDTO)
+    activate BlogFeign
+
+    BlogFeign -> BlogCtrl : POST /blog/internal/moderation/result\nHeaders: X-Moderation-Token: {token}
+    activate BlogCtrl
+
+    ' === 内部鉴权 ===
+    BlogCtrl -> BlogCtrl : 验证 X-Moderation-Token\n== "emiyaoj-moderation-internal" ?
+
+    alt Token 无效
+        BlogCtrl --> BlogFeign : ResponseResult.fail(403, "Forbidden")
+        deactivate BlogCtrl
+        BlogFeign --> Consumer : 403
+        deactivate BlogFeign
+    else Token 有效
+        BlogCtrl -> BlogSvc : applyModerationResult(resultDTO)
+        activate BlogSvc
+
+        ' === 验证参数 + 匹配 TaskId ===
+        BlogSvc -> BlogSvc : 验证 targetType, taskId, auditStatus\nAuditStatus.fromCode()
+
+        alt 参数无效
+            BlogSvc --> BlogCtrl : false
+            deactivate BlogSvc
+            BlogCtrl --> BlogFeign : ResponseResult.fail(400)
+            deactivate BlogCtrl
+            BlogFeign --> Consumer : 400
+            deactivate BlogFeign
+        else 参数有效
+            ' === 更新审核状态 (精确匹配 taskId) ===
+            alt targetType == BLOG
+                BlogSvc -> MySQL : UPDATE blog SET\n  auditStatus=?, auditReason=?,\n  auditLabels=?, auditTime=NOW()\nWHERE id=targetId\n  AND auditTaskId=taskId
+                activate MySQL
+                MySQL --> BlogSvc : updated rows
+                deactivate MySQL
+            else targetType == COMMENT
+                BlogSvc -> CommentMapper : UPDATE blog_comment SET\n  auditStatus=?, auditReason=?,\n  auditLabels=?, auditTime=NOW()\nWHERE id=targetId\n  AND auditTaskId=taskId
+                activate CommentMapper
+                CommentMapper --> BlogSvc : updated rows
+                deactivate CommentMapper
+            end
+
+            alt updated == 0 (taskId 不匹配 · 过期结果)
+                BlogSvc -> BlogSvc : log.warn("Ignored stale result")\n(可能是重复回调或重审)
+            end
+
+            BlogSvc --> BlogCtrl : true
+            deactivate BlogSvc
+            BlogCtrl --> BlogFeign : ResponseResult.success()
+            deactivate BlogCtrl
+            BlogFeign --> Consumer : 200 OK ✓
+            deactivate BlogFeign
+            note right of Consumer : 回调成功，退出重试循环
+        end
+    end
+end
+
+' === 重试结果处理 ===
+alt 回调成功 (3 次内)
+    Consumer -> Consumer : channel.basicAck(deliveryTag)\n→ 消息确认，从队列移除
+    note right of Consumer : 审核完成 ✓
+else 3 次全部失败
+    Consumer -> Consumer : channel.basicReject(deliveryTag, false)\n→ 消息拒绝，不重新入队
+    Consumer -> DLQ : 进入死信队列\n(系统管理员手动排查)
+    activate DLQ
+    note right of DLQ : 死信消息等待\n管理员介入处理
+    deactivate DLQ
+end
+
+deactivate Consumer
+
+' ============================================================
+' 阶段四：用户发布评论 (POST /blog/{bid}/comments)
+' ============================================================
+
+== 💬 阶段四：用户发布评论 + 评论审核 (POST /blog/{bid}/comments) ==
+
+User -> Gateway : POST /blog/{bid}/comments\n{ content }
+activate Gateway
+Gateway -> BlogCtrl : 路由转发\nHeaders: X-User-Id
+deactivate Gateway
+activate BlogCtrl
+
+BlogCtrl -> BlogSvc : saveComment(blogId, saveDTO, userId)
+activate BlogSvc
+
+BlogSvc -> BlogSvc : requireActiveBlog(blogId)\n验证博客存在且有效
+
+BlogSvc -> BlogSvc : 构建 BlogComment 实体\nprepareForAudit(comment)\n• auditStatus = PENDING(0)\n• auditTaskId = UUID
+
+BlogSvc -> CommentMapper : INSERT INTO blog_comment\n(blogId, userId, content, auditStatus, auditTaskId, ...)
+activate CommentMapper
+CommentMapper --> BlogSvc : commentId
+deactivate CommentMapper
+
+BlogSvc -> BlogSvc : submitCommentModeration(comment)\n构建 ModerationTaskMessage:\n{ taskId, targetType=COMMENT,\n  targetId, userId, content }
+
+BlogSvc -> MqPublisher : publishComment(message)
+activate MqPublisher
+
+MqPublisher -> Exchange : convertAndSend(\n  "emiyaoj.moderation.exchange",\n  "moderation.comment.text", message)
+activate Exchange
+
+alt 发布成功
+    Exchange --> MqPublisher : true
+    deactivate Exchange
+    note right of Exchange : 路由到 Comment Text Queue\n(与博客队列分离，独立消费)
+else 发布失败
+    Exchange --> MqPublisher : throw Exception
+    deactivate Exchange
+    BlogSvc -> BlogSvc : markCommentManualReview()
+    BlogSvc -> CommentMapper : UPDATE blog_comment\nSET auditStatus=3(MANUAL_REVIEW)
+    activate CommentMapper
+    CommentMapper --> BlogSvc : OK
+    deactivate CommentMapper
+end
+
+MqPublisher --> BlogSvc : boolean
+deactivate MqPublisher
+
+BlogSvc --> BlogCtrl : true
+deactivate BlogSvc
+BlogCtrl --> User : ResponseResult.success()\n评论已提交，审核中
+deactivate BlogCtrl
+
+note over Exchange, CommentQueue : 评论审核后续流程\n与博客审核阶段二/三一致\n→ Aliyun API 检测 → 回调更新 blog_comment 表
+
+' ============================================================
+' 阶段五：管理员手动审核
+' ============================================================
+
+== 👨‍💼 阶段五：管理员手动审核 (PUT /blog/moderation/{type}/{id}/status) ==
+
+Admin -> Gateway : PUT /blog/moderation/blogs/{bid}/status\n?auditStatus=1&reason=符合规范
+activate Gateway
+Gateway -> Gateway : JWT 验证\n注入 X-User-Roles
+Gateway -> BlogCtrl : 路由转发\nHeaders: X-User-Roles: BLOG_MODERATION_MANAGE
+deactivate Gateway
+activate BlogCtrl
+
+BlogCtrl -> BlogSvc : updateBlogAuditStatus(blogId, auditStatus, reason, permissions)
+activate BlogSvc
+
+' === 权限校验 ===
+BlogSvc -> BlogSvc : requireModerationManager(permissions)\n检查是否包含 "BLOG_MODERATION_MANAGE"
+
+alt 无审核权限
+    BlogSvc --> BlogCtrl : throw BaseException(403, "No moderation permission")
+    BlogCtrl --> Admin : 403 权限不足
+else 有审核权限
+    ' === 状态合法性校验 ===
+    BlogSvc -> BlogSvc : requireAuditStatus(auditStatus)\n不允许设置为 PENDING(0)\n只允许 APPROVED(1)/REJECTED(2)/MANUAL_REVIEW(3)
+
+    alt 无效状态
+        BlogSvc --> BlogCtrl : throw BaseException(400)
+        BlogCtrl --> Admin : 400 无效审核状态
+    else 有效状态
+        BlogSvc -> MySQL : UPDATE blog SET\n  auditStatus=?, auditReason="Manual moderation",\n  auditLabels="manual", auditTime=NOW()\nWHERE id=?
+        activate MySQL
+        MySQL --> BlogSvc : OK
+        deactivate MySQL
+
+        BlogSvc --> BlogCtrl : true
+        deactivate BlogSvc
+        BlogCtrl --> Admin : ResponseResult.success()\n人工审核完成
+        deactivate BlogCtrl
+    end
+end
+
+note over Admin, MySQL : 评论手动审核流程同理\nPUT /blog/moderation/comments/{cid}/status
+
+' ============================================================
+' 阶段六：用户查询博客 (可见性控制)
+' ============================================================
+
+== 👁️ 阶段六：审核状态可见性控制 (查询时的权限过滤) ==
+
+User -> Gateway : GET /blog/{bid}\n(或 POST /blog/query)
+activate Gateway
+Gateway -> BlogCtrl : 路由转发\nHeaders: X-User-Id, X-User-Roles
+deactivate Gateway
+activate BlogCtrl
+
+BlogCtrl -> BlogSvc : selectBlogById(bid, userId, permissions)
+activate BlogSvc
+
+BlogSvc -> MySQL : SELECT * FROM blog WHERE id=? AND deleted=0
+activate MySQL
+MySQL --> BlogSvc : Blog { auditStatus, userId, ... }
+deactivate MySQL
+
+BlogSvc -> BlogSvc : canViewBlog(blog, userId, permissions) ?
+
+alt 审核管理员 (BLOG_MODERATION_MANAGE)
+    note right of BlogSvc : 权限最高\n可查看所有审核状态
+    BlogSvc -> BlogSvc : 返回博客 (任意 auditStatus) ✓
+else 博客作者本人
+    note right of BlogSvc : 可查看自己所有博客\n含 PENDING/REJECTED/MANUAL_REVIEW
+    BlogSvc -> BlogSvc : 返回博客 ✓
+else auditStatus == APPROVED(1)
+    note right of BlogSvc : 普通用户\n仅可见已批准的公开博客
+    BlogSvc -> BlogSvc : 返回博客 ✓
+else 其他情况
+    note right of BlogSvc : 非公开博客\nPENDING/REJECTED/MANUAL_REVIEW\n对普通用户不可见
+    BlogSvc --> BlogCtrl : null (不可见)
+    deactivate BlogSvc
+    BlogCtrl --> User : 404 未找到该博客
+    deactivate BlogCtrl
+end
+
+' ============================================================
+' 注释说明
+' ============================================================
+
+note over User, DLQ
+  **UML 2.5 时序图规范要素**
+  ———————————
+  ◇ **同步消息** (→)：实心三角箭头，调用者等待返回
+  ◇ **异步消息** (→→)：RabbitMQ 发布-消费模式
+  ◇ **返回消息** (-->): 虚线箭头，表示返回值
+  ◇ **alt/else**: 条件分支 (审核结果判定、权限校验)
+  ◇ **opt**: 可选交互 (标签/图片关联、MQ 降级)
+  ◇ **loop**: 回调重试循环 (最多 3 次)
+  ◇ **activate/deactivate**: 生命周期控制
+
+  **审核状态码映射 (AuditStatus)**
+  —————————————————
+  | 0-PENDING     | 待审核 · 仅博主和管理员可见 |
+  | 1-APPROVED    | 已批准 · 所有人可见 ✓       |
+  | 2-REJECTED    | 已拒绝 · 仅博主和管理员可见 |
+  | 3-MANUAL_REVIEW | 人工审核 · 仅管理员可见   |
+
+  **阿里云检测标签 (8 类)**
+  ———————————
+  spam(垃圾) · politics(政治) · abuse(辱骂) · terrorism(暴恐)
+  porn(色情) · flood(刷屏) · contraband(违禁) · ad(广告)
+
+  **关键设计决策**
+  ——————————
+  · 异步审核：用户发布后立即返回，不阻塞体验
+  · UUID TaskId 追踪：防重复 + 支持重审场景
+  · 精确匹配 taskId：避免过期回调覆盖新审核结果
+  · RabbitMQ Topic Exchange：博客/评论分离路由
+  · 死信队列 (DLQ)：兜底失败消息，管理员手动排查
+  · Feign 回调重试：3 次 + 固定间隔，保证最终一致性
+  · MQ 降级：发布失败自动标记为 MANUAL_REVIEW
+  · 内部 Token 鉴权：X-Moderation-Token 防外部伪造
+end note
+
+@enduml

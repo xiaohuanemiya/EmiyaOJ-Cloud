@@ -14,6 +14,69 @@
 
 ## 1 测试计划
 
+**测试策略总览：**
+
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title EmiyaOJ-Cloud 测试策略 — 组件图 (UML 2.5)
+
+package "测试层次" {
+    package "L1: 单元测试" #LightGreen {
+        [JWT 编解码] as UT1
+        [语言命令构造] as UT2
+        [判题结果计算] as UT3
+        [Service 层逻辑] as UT4
+    }
+    
+    package "L2: 接口测试" #LightCyan {
+        [认证接口] as API1
+        [题目接口] as API2
+        [判题接口] as API3
+        [博客接口] as API4
+        [审核接口] as API5
+        [AI 接口] as API6
+    }
+    
+    package "L3: 集成测试" #LightYellow {
+        [Gateway 转发] as INT1
+        [Feign 服务调用] as INT2
+        [Redis Token] as INT3
+        [Go-Judge 沙箱] as INT4
+        [RabbitMQ 消息] as INT5
+        [MinIO 存储] as INT6
+    }
+    
+    package "L4: 系统测试" #Lavender {
+        [端到端链路] as SYS1
+        [权限边界] as SYS2
+        [异常场景] as SYS3
+        [部署验证] as SYS4
+        [性能基线] as SYS5
+    }
+}
+
+UT1 --> API1
+UT2 --> API3
+UT3 --> API3
+UT4 --> API2
+API1 --> INT1
+API2 --> INT2
+API3 --> INT2
+API3 --> INT4
+API4 --> INT5
+API4 --> INT6
+API5 --> INT5
+INT1 --> SYS1
+INT2 --> SYS1
+INT3 --> SYS2
+INT4 --> SYS1
+INT5 --> SYS3
+INT6 --> SYS3
+
+@enduml
+```
+
 ### 1.1 进度安排
 
 本次测试计划安排在 2026 年 5 月 13 日至 2026 年 5 月 15 日进行，结合项目实施计划中的 Day7 测试与修复阶段完成。测试工作包含测试用例编写、单元测试执行、接口联调测试、页面联调测试、集成测试、权限与异常测试、Docker Compose 部署测试、Jenkins 流水线测试和最终演示验收测试。
@@ -86,6 +149,57 @@ Get-Content -Encoding UTF8 -Path docs\测试方案与测试用例模板.md
 | 博客数据 | 包含待审核、审核通过、审核驳回内容 |
 | 判题代码 | AC、WA、CE、TLE、RE、SE 场景代码 |
 
+**测试数据流转图：**
+
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 测试数据准备与流转 — 活动图 (UML 2.5)
+
+start
+:准备测试账号;
+
+fork
+  :管理员账号\n(admin/123456);
+fork again
+  :普通用户账号\n(user/123456);
+fork again
+  :审核人员账号\n(moderator/123456);
+end fork
+
+:执行 SQL 初始化脚本;
+
+:准备题目测试数据;
+:创建题目 + 样例用例 + 隐藏用例;
+:配置编程语言 (C++/Python);
+
+:准备竞赛测试数据;
+:创建竞赛 (未开始/进行中/已结束);
+:配置竞赛题目和邀请码;
+
+:准备博客测试数据;
+:预置审核通过的博客;
+:预置待审核的博客/评论;
+
+:准备判题代码;
+fork
+  :AC 代码 (正确输出);
+fork again
+  :WA 代码 (错误输出);
+fork again
+  :CE 代码 (语法错误);
+fork again
+  :TLE 代码 (死循环);
+fork again
+  :RE 代码 (运行时异常);
+end fork
+
+:测试数据就绪;
+stop
+
+@enduml
+```
+
 ### 1.4 测试范围
 
 | 测试类型 | 覆盖内容 |
@@ -101,6 +215,64 @@ Get-Content -Encoding UTF8 -Path docs\测试方案与测试用例模板.md
 | 流水线测试 | Jenkins 拉取代码、Maven 构建、镜像构建、容器更新、健康检查 |
 | 回归测试 | 缺陷修复后复测关联模块和端到端核心链路 |
 | 演示测试 | 从管理员配置题目到用户提交代码、查看结果、发布博客并审核通过的完整链路 |
+
+**核心验收链路总览：**
+
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title EmiyaOJ-Cloud 核心验收链路 — 活动图 (UML 2.5)
+
+|管理端|
+start
+:管理员登录管理端;
+:创建题目、样例用例、隐藏用例;
+:配置编程语言 (C++/Python);
+:发布题目 (status=1);
+
+|用户端-判题|
+:普通用户登录用户端;
+:浏览题目列表与详情;
+:选择语言并提交 AC 代码;
+:系统返回提交编号;
+:异步判题执行;
+:Go-Judge 编译运行;
+:结果汇总 → AC;
+:用户查看提交详情与判题结果;
+
+|用户端-竞赛|
+if (需测试竞赛链路?) then (是)
+  :管理员创建竞赛;
+  :用户使用邀请码报名;
+  :用户在竞赛中提交代码;
+  :查看竞赛排行榜;
+endif
+
+|用户端-博客审核|
+:用户发布博客或题解;
+:内容进入 PENDING 状态;
+:RabbitMQ 投递审核任务;
+:Moderation Service 消费;
+:阿里云文本审核;
+:审核通过 → APPROVED;
+:内容公开展示;
+
+|异常与兜底|
+if (外部服务不可用?) then (是)
+  :AI 服务返回友好提示;
+  :审核转人工复核;
+endif
+
+|部署验证|
+:Docker Compose 启动所有服务;
+:Jenkins 流水线构建部署;
+:健康检查全部通过;
+
+:测试验收完成;
+stop
+
+@enduml
+```
 
 ### 1.5 准入与准出标准
 
@@ -178,6 +350,71 @@ Get-Content -Encoding UTF8 -Path docs\测试方案与测试用例模板.md
 | Moderation | 审核任务、阿里云审核、审核回写、人工审核 | 审核状态可流转，内部回写受保护 |
 | Chat | AI 问答、外部服务异常 | 可返回回答或友好异常 |
 | 部署运维 | Docker Compose、Nacos、Jenkins | 服务可启动、注册、构建和部署 |
+
+**测试模块与用例映射：**
+
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 测试模块与用例组映射 — 组件图 (UML 2.5)
+
+package "被测模块" #LightCyan {
+    [Common] as M0
+    [Gateway] as M1
+    [Auth] as M2
+    [Problem] as M3
+    [Judge] as M4
+    [Blog] as M5
+    [Moderation] as M6
+    [Chat] as M7
+    [部署运维] as M8
+}
+
+package "用例组" #LightYellow {
+    [TC-E2E\n端到端链路] as E2E
+    [TC-AUTH\n认证登录] as AUTH
+    [TC-GW\n网关鉴权] as GW
+    [TC-RBAC\n角色权限] as RBAC
+    [TC-PROBLEM\n题目管理] as PROB
+    [TC-CASE\n测试用例] as CASE
+    [TC-LANG\n语言配置] as LANG
+    [TC-SET\n题单管理] as SET
+    [TC-CONTEST\n竞赛管理] as CONT
+    [TC-JUDGE\n判题提交] as JUDGE
+    [TC-BLOG\n博客互动] as BLOG
+    [TC-MOD\n内容审核] as MOD
+    [TC-AI\nAI问答] as AI
+    [TC-DEPLOY\n部署验证] as DEP
+    [TC-CICD\n流水线] as CICD
+    [TC-EX\n异常处理] as EX
+    [TC-NF\n非功能] as NF
+}
+
+E2E --> M3
+E2E --> M4
+E2E --> M5
+E2E --> M6
+AUTH --> M2
+GW --> M1
+RBAC --> M2
+PROB --> M3
+CASE --> M3
+LANG --> M3
+SET --> M3
+CONT --> M3
+CONT --> M4
+JUDGE --> M4
+BLOG --> M5
+MOD --> M6
+MOD --> M5
+AI --> M7
+DEP --> M8
+CICD --> M8
+EX --> M0
+NF --> M0
+
+@enduml
+```
 
 ## 4 测试用例描述
 

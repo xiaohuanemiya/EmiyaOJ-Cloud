@@ -58,6 +58,78 @@ Get-Content -Encoding UTF8 -Path docs\系统测试报告模板.md
 | 接口测试工具 | Swagger UI、Apifox、Postman 或 curl |
 | 前端应用 | 管理端、用户端独立项目，通过 Gateway 访问后端 |
 
+**测试环境架构图：**
+
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+title EmiyaOJ-Cloud 系统测试环境架构 — 部署图 (UML 2.5)
+
+package "测试主机" {
+    node "Docker Compose 环境" {
+        package "基础设施" #LightYellow {
+            database "MySQL\n:3306" as MySQL
+            database "Redis\n:6379" as Redis
+            node "Nacos\n:8848" as Nacos
+            queue "RabbitMQ\n:5672" as RabbitMQ
+            database "MinIO\n:9000" as MinIO
+            node "Go-Judge\n:5050" as GoJudge
+        }
+        
+        package "业务服务" #LightCyan {
+            [Gateway\n:8080] as GW
+            [Auth\n:9010] as Auth
+            [Problem\n:9020] as Problem
+            [Judge\n:9030] as Judge
+            [Blog\n:9040] as Blog
+            [Chat\n:9050] as Chat
+            [Moderation\n:9060] as Mod
+        }
+    }
+    
+    package "测试工具" #Lavender {
+        [Swagger UI] as Swagger
+        [Apifox/Postman] as Postman
+        [curl] as Curl
+        [Jenkins] as Jenkins
+    }
+}
+
+package "前端应用" {
+    [管理端] as AdminUI
+    [用户端] as UserUI
+}
+
+AdminUI --> GW : HTTP 测试
+UserUI --> GW : HTTP 测试
+Swagger --> GW : API 测试
+Postman --> GW : API 测试
+Curl --> GW : CLI 测试
+Jenkins --> GW : 健康检查
+
+GW --> Auth
+GW --> Problem
+GW --> Judge
+GW --> Blog
+GW --> Chat
+GW --> Mod
+
+Auth --> MySQL : JDBC
+Auth --> Redis
+Problem --> MySQL
+Judge --> MySQL
+Judge --> GoJudge : HTTP REST
+Judge --> Problem : Feign
+Blog --> MySQL
+Blog --> MinIO : S3 API
+Blog --> RabbitMQ : AMQP
+Mod --> RabbitMQ : AMQP
+Mod --> Blog : Feign
+
+@enduml
+```
+
 ### 1.4 硬件与运行环境测试
 
 | 编号 | 测试项目 | 测试内容 | 测试结果 |
@@ -104,6 +176,64 @@ Get-Content -Encoding UTF8 -Path docs\系统测试报告模板.md
 | 17 | 数据一致性与回归 | 无阻断错误，通过 | 无阻断错误，通过 | 提交汇总、审核回写、引用关系、重复操作和回归链路正常 |
 
 ## 2 测试用例执行摘要
+
+**测试执行流程：**
+
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title EmiyaOJ-Cloud 系统测试执行流程 — 活动图 (UML 2.5)
+
+|测试准备|
+start
+:阅读需求、概要设计、详细设计\n和 API 文档;
+:准备测试数据与测试环境;
+:执行 SQL 初始化脚本;
+:Docker Compose 启动基础设施;
+
+|测试执行|
+:启动全部业务服务;
+:验证 Nacos 服务注册;
+
+fork
+  :单元测试;
+  :JWT 编解码、语言命令构造\n判题结果计算、服务层测试;
+fork again
+  :接口测试;
+  :登录、题目、语言、题单\n竞赛、提交、博客、审核\nAI 接口;
+fork again
+  :集成测试;
+  :Gateway 转发、Feign 调用\nRedis Token、Go-Judge 调用\nRabbitMQ 审核、MinIO 上传;
+fork again
+  :权限测试;
+  :未登录拦截、越权访问\nRBAC 边界、隐藏用例保护;
+fork again
+  :异常测试;
+  :参数错误、业务错误\n401/500、外部服务不可用;
+end fork
+
+|数据一致性验证|
+:验证提交汇总与用例明细一致性;
+:验证竞赛报名与提交关系;
+:验证审核任务回写一致性;
+:验证用户互动统计;
+
+|部署验证|
+:Docker Compose 全量启动;
+:Jenkins 流水线构建部署;
+:容器重启恢复测试;
+
+|结论|
+if (P0/P1 缺陷 = 0?) then (是)
+  :测试通过，准出;
+else (否)
+  :修复后回归;
+  :重新执行核心链路;
+endif
+
+stop
+@enduml
+```
 
 ### 2.1 用例组执行结果
 
@@ -156,6 +286,66 @@ Get-Content -Encoding UTF8 -Path docs\系统测试报告模板.md
 | E2E-010 | 缺陷修复或配置调整后回归登录、题目、判题、博客审核链路 | 无阻断错误，通过 |
 
 ## 3 缺陷与风险说明
+
+**测试覆盖度总览：**
+
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title EmiyaOJ-Cloud 测试覆盖度总览 — 组件图 (UML 2.5)
+
+package "测试层级 (17 组全部通过)" #LightGreen {
+    [单元测试\n8 个测试类] as Unit
+    [接口测试\n17 个用例组] as API
+    [集成测试\n6 个集成项] as Integration
+    [权限测试\n3 个用例组] as RBAC
+    [异常测试\n4 个用例组] as Exception
+    [部署测试\n4 个用例组] as Deploy
+    [流水线测试\n3 个用例组] as CICD
+}
+
+package "模块覆盖 (8/8 全部通过)" #LightCyan {
+    [Common] as M0
+    [Gateway] as M1
+    [Auth] as M2
+    [Problem] as M3
+    [Judge] as M4
+    [Blog] as M5
+    [Moderation] as M6
+    [Chat] as M7
+}
+
+package "缺陷统计" #LightYellow {
+    [P0 阻断: 0] as P0
+    [P1 主要: 0] as P1
+    [P2 一般: 0] as P2
+    [P3 低风险: 0] as P3
+}
+
+Unit --> M0
+Unit --> M3
+Unit --> M4
+API --> M1
+API --> M2
+API --> M3
+API --> M4
+API --> M5
+API --> M6
+API --> M7
+Integration --> M1
+Integration --> M3
+Integration --> M4
+Integration --> M5
+Integration --> M6
+RBAC --> M1
+RBAC --> M2
+Deploy --> M1
+Deploy --> M2
+Deploy --> M3
+Deploy --> M4
+
+@enduml
+```
 
 ### 3.1 缺陷统计
 

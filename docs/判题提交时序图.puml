@@ -1,0 +1,445 @@
+@startuml EmiyaOJ-Cloud-Judge-Submission-Sequence
+
+' ============================================================
+' EmiyaOJ-Cloud 代码提交与判题流程 — 分析级时序图 (UML 2.5 规范)
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 11
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 220
+skinparam ParticipantPadding 25
+skinparam BoxPadding 18
+skinparam noteBackgroundColor #FFFDE7
+
+title **EmiyaOJ-Cloud 代码提交与判题流程 — 分析级时序图**\n(UML 2.5 规范 · 异步判题架构 · Go-Judge 沙箱隔离执行)
+
+' ====== 参与者定义 ======
+
+actor "客户端\n(浏览器/前端)" as Client
+
+box "API 网关层 (Port 8080)" #LightSteelBlue
+    participant "AuthGlobalFilter\n(全局认证过滤器)" as Gateway
+end box
+
+box "判题服务 Judge-Service (Port 9030)" #LightCyan
+    participant "JudgeController\n(判题控制器)" as JudgeCtrl
+    participant "SubmissionService\n(提交业务服务)" as SubSvc
+    participant "ProblemFeignClient\n(Feign 远程调用)" as ProblemFeign
+    participant "JudgeExecutor\n(@Async 异步执行器)" as Executor
+    participant "GoJudgeService\n(沙箱 HTTP 客户端)" as GoJudgeClient
+    participant "JudgeResultCalculator\n(结果汇总计算器)" as Calculator
+end box
+
+box "问题服务 Problem-Service" #Lavender
+    participant "ProblemController\n(题目/语言/测试用例)" as ProblemCtrl
+end box
+
+box "Go-Judge 判题沙箱 (Docker)" #LightSalmon
+    participant "go-judge\n(:5050/run)" as GoJudge
+end box
+
+box "数据持久层" #LightYellow
+    database "MySQL\n(emiya_oj_judge)" as MySQL
+end box
+
+' ============================================================
+' 阶段一：代码提交 (同步 · 立即返回)
+' ============================================================
+
+== 🚀 阶段一：代码提交 (POST /judge/submit · 同步 · 立即返回) ==
+
+Client -> Gateway : POST /judge/submit\n{ problemId, languageId, code, contestId? }
+activate Gateway
+note right of Gateway : Authorization: Bearer {JWT}
+
+Gateway -> Gateway : AuthGlobalFilter.filter()\n1. 提取 Bearer Token\n2. 网关卡解析 JWT (HMAC-SHA256)\n3. Redis 白名单验证\n4. 注入 X-User-Id 头
+
+Gateway -> JudgeCtrl : 路由转发\nHeaders: X-User-Id: {userId}
+deactivate Gateway
+activate JudgeCtrl
+
+JudgeCtrl -> SubSvc : submitCode(SubmitCodeDTO, userId)
+activate SubSvc
+
+' === 验证1: 题目是否存在 ===
+SubSvc -> ProblemFeign : getProblemById(problemId)
+activate ProblemFeign
+ProblemFeign -> ProblemCtrl : GET /problem/{id}
+activate ProblemCtrl
+ProblemCtrl -> MySQL : SELECT * FROM problem WHERE id=?
+activate MySQL
+MySQL --> ProblemCtrl : ProblemVO
+deactivate MySQL
+ProblemCtrl --> ProblemFeign : ResponseResult(200, ProblemVO)
+deactivate ProblemCtrl
+
+alt 题目不存在
+    ProblemFeign --> SubSvc : code != 200 或 data == null
+    deactivate ProblemFeign
+    SubSvc --> JudgeCtrl : throw BaseException("Problem does not exist")
+    JudgeCtrl --> Client : 400 题目不存在
+else 题目存在
+    ProblemFeign --> SubSvc : ProblemVO { timeLimit, memoryLimit, ... }
+    deactivate ProblemFeign
+
+    ' === 验证2: 编程语言是否存在 ===
+    SubSvc -> ProblemFeign : getLanguageById(languageId)
+    activate ProblemFeign
+    ProblemFeign -> ProblemCtrl : GET /language/{id}
+    activate ProblemCtrl
+    ProblemCtrl -> MySQL : SELECT * FROM language WHERE id=?
+    activate MySQL
+    MySQL --> ProblemCtrl : LanguageVO
+    deactivate MySQL
+    ProblemCtrl --> ProblemFeign : ResponseResult(200, LanguageVO)
+    deactivate ProblemCtrl
+
+    alt 语言不存在
+        ProblemFeign --> SubSvc : code != 200 或 data == null
+        deactivate ProblemFeign
+        SubSvc --> JudgeCtrl : throw BaseException("Language does not exist")
+        JudgeCtrl --> Client : 400 语言不存在
+    else 语言存在
+        ProblemFeign --> SubSvc : LanguageVO { isCompiled, compileCommand, runCommand, ... }
+        deactivate ProblemFeign
+
+        ' === 验证3: 竞赛提交检查 (可选) ===
+        opt contestId != null
+            SubSvc -> ProblemFeign : checkContestSubmit(contestId, problemId, userId)
+            activate ProblemFeign
+            ProblemFeign -> ProblemCtrl : GET /contest/{id}/check-submit
+            activate ProblemCtrl
+            ProblemCtrl --> ProblemFeign : ContestSubmitCheckVO { allowed, contestProblemId, message }
+            deactivate ProblemCtrl
+
+            alt 竞赛不允许提交
+                ProblemFeign --> SubSvc : allowed == false
+                deactivate ProblemFeign
+                SubSvc --> JudgeCtrl : throw BaseException("Contest submission not allowed")
+                JudgeCtrl --> Client : 400 竞赛未开放或已结束
+            else 竞赛允许提交
+                ProblemFeign --> SubSvc : ContestSubmitCheckVO { allowed=true, contestProblemId }
+                deactivate ProblemFeign
+            end
+        end
+
+        ' === 持久化: 插入 submission 记录 ===
+        SubSvc -> SubSvc : 构建 Submission 实体\n{ problemId, userId, languageId, code,\n  contestId?, contestProblemId?, ... }
+
+        SubSvc -> MySQL : INSERT INTO submission\n(userId, problemId, languageId, code, contestId, ...)
+        activate MySQL
+        MySQL --> SubSvc : submissionId (雪花ID)
+        deactivate MySQL
+
+        ' === 持久化: 插入判题结果初始记录 ===
+        SubSvc -> SubSvc : 构建 SubmissionJudgeResult\nstatus=PENDING, passedCaseCount=0, score=0
+
+        SubSvc -> MySQL : INSERT INTO submission_judge_result\n(submissionId, status=0, score=0, ...)
+        activate MySQL
+        MySQL --> SubSvc : OK
+        deactivate MySQL
+
+        ' === 触发异步判题 ===
+        SubSvc -> Executor : executeJudgeAsync(submissionId,\n  problemId, languageId, code)
+        note right of Executor : @Async 注解\nSpring 线程池异步执行\n主线程立即返回
+
+        SubSvc -> SubSvc : toSubmissionVO()\n构建响应 { id, status=PENDING, ... }
+
+        SubSvc --> JudgeCtrl : SubmissionVO
+        deactivate SubSvc
+
+        JudgeCtrl --> Client : ResponseResult(200, SubmissionVO)\n{ "id": 123..., "status": 0(PENDING) }
+        deactivate JudgeCtrl
+    end
+end
+
+' ============================================================
+' 阶段二：异步判题 — 信息获取
+' ============================================================
+
+== ⚙️ 阶段二：异步判题 — 前置准备 (JudgeExecutor @Async 线程) ==
+
+activate Executor
+note right of Executor : 异步线程开始执行\n独立于 HTTP 请求线程
+
+Executor -> MySQL : SELECT * FROM submission WHERE id=?
+activate MySQL
+MySQL --> Executor : Submission
+deactivate MySQL
+
+Executor -> Executor : updateJudgeStatus(JUDGING)\n状态: 0(PENDING) → 1(JUDGING)
+Executor -> MySQL : UPDATE submission_judge_result\nSET status=1 WHERE submissionId=?
+activate MySQL
+MySQL --> Executor : OK
+deactivate MySQL
+
+Executor -> Executor : clearCaseResults()\n删除上一轮测试用例结果
+Executor -> MySQL : DELETE FROM submission_case_result\nWHERE submissionId=?
+activate MySQL
+MySQL --> Executor : OK
+deactivate MySQL
+
+' === 获取语言配置 ===
+Executor -> ProblemFeign : getLanguageById(languageId)
+activate ProblemFeign
+ProblemFeign -> ProblemCtrl : GET /language/{id}
+activate ProblemCtrl
+ProblemCtrl -> MySQL : SELECT * FROM language WHERE id=?
+activate MySQL
+MySQL --> ProblemCtrl : LanguageVO
+deactivate MySQL
+ProblemCtrl --> ProblemFeign : LanguageVO
+deactivate ProblemCtrl
+
+alt 获取语言失败
+    ProblemFeign --> Executor : null
+    deactivate ProblemFeign
+    Executor -> Executor : updateSummary(SYSTEM_ERROR,\n"获取语言信息失败")
+    Executor -> MySQL : UPDATE submission_judge_result\nSET status=4(SYSTEM_ERROR)
+    activate MySQL
+    MySQL --> Executor : OK
+    deactivate MySQL
+    note right of Executor : 判题终止
+else 获取成功
+    ProblemFeign --> Executor : LanguageVO { isCompiled, compileCommand,\n  compileTimeLimit, compileMemoryLimit, ... }
+    deactivate ProblemFeign
+
+    ' === 获取测试用例 ===
+    Executor -> ProblemFeign : getTestCasesByProblemId(problemId)
+    activate ProblemFeign
+    ProblemFeign -> ProblemCtrl : GET /problem/{id}/test-cases
+    activate ProblemCtrl
+    ProblemCtrl -> MySQL : SELECT * FROM test_case\nWHERE problemId=? AND deleted=0\nORDER BY id
+    activate MySQL
+    MySQL --> ProblemCtrl : List<TestCaseVO>
+    deactivate MySQL
+    ProblemCtrl --> ProblemFeign : List<TestCaseVO>
+    deactivate ProblemCtrl
+
+    alt 无测试用例
+        ProblemFeign --> Executor : 空列表
+        deactivate ProblemFeign
+        Executor -> Executor : updateSummary(SYSTEM_ERROR,\n"获取测试用例失败或无测试用例")
+        Executor -> MySQL : UPDATE submission_judge_result\nSET status=4(SYSTEM_ERROR)
+        activate MySQL
+        MySQL --> Executor : OK
+        deactivate MySQL
+        note right of Executor : 判题终止
+    else 获取成功 (N 个测试用例)
+        ProblemFeign --> Executor : List<TestCaseVO> [N 条]\n每条: { id, input, output, score }
+        deactivate ProblemFeign
+
+        ' === 获取题目配置 (时间/内存限制) ===
+        Executor -> ProblemFeign : getProblemById(problemId)
+        activate ProblemFeign
+        ProblemFeign -> ProblemCtrl : GET /problem/{id}
+        activate ProblemCtrl
+        ProblemCtrl --> ProblemFeign : ProblemVO
+        deactivate ProblemCtrl
+        ProblemFeign --> Executor : ProblemVO { timeLimit=1000ms, memoryLimit=256MB }
+        deactivate ProblemFeign
+
+        ' ============================================================
+        ' 阶段三：异步判题 — 编译阶段 (编译型语言)
+        ' ============================================================
+
+        == 🔧 阶段三：异步判题 — 编译阶段 (C/C++/Java/Go · isCompiled=1) ==
+
+        alt 语言为编译型 (isCompiled == 1)
+            Executor -> GoJudgeClient : compile(code, language)
+            activate GoJudgeClient
+
+            GoJudgeClient -> GoJudgeClient : buildCompileCmd()\n构建 Cmd:\n• args: ["g++", "-o", "main", "main.cpp"]\n• env: ["PATH=/usr/bin:/bin"]\n• cpuLimit: compileTimeLimit (ns)\n• memoryLimit: compileMemoryLimit (bytes)\n• copyIn: { "main.cpp": sourceCode }\n• copyOut: ["stderr"]\n• copyOutCached: ["main"]
+
+            GoJudgeClient -> GoJudge : POST /run\n[{ "args": [...], "env": [...],\n   "cpuLimit": ..., "memoryLimit": ...,\n   "copyIn": {...}, "copyOutCached": [...] }]
+            activate GoJudge
+
+            GoJudge -> GoJudge : Docker 容器内执行编译\n• 创建隔离环境\n• 写入源文件\n• 执行 g++ 编译命令\n• 收集 stderr 输出\n• 缓存可执行文件
+
+            GoJudge --> GoJudgeClient : GoJudgeResult\n{ status, exitStatus, time, memory,\n  files: { "stderr": "..." },\n  fileIds: { "main": "abc123" } }
+            deactivate GoJudge
+
+            GoJudgeClient --> Executor : GoJudgeResult
+            deactivate GoJudgeClient
+
+            alt 编译失败 (status != "Accepted")
+                Executor -> Executor : extractCompileError()\n提取 stderr 编译错误信息
+                Executor -> Calculator : buildSummary(..., COMPILE_ERROR, compileError)
+                activate Calculator
+                Calculator --> Executor : SubmissionJudgeResult { status=3(CE) }
+                deactivate Calculator
+                Executor -> MySQL : UPDATE submission_judge_result\nSET status=3(CE), compileMessage=...
+                activate MySQL
+                MySQL --> Executor : OK
+                deactivate MySQL
+                note right of Executor : 编译失败，判题终止\n跳过运行阶段
+            else 编译成功 (status == "Accepted")
+                Executor -> Executor : 保存 fileIds\n{ "main": "abc123" }\n后续运行直接引用缓存文件
+            end
+        end
+
+        ' ============================================================
+        ' 阶段四：异步判题 — 逐用例运行与判定
+        ' ============================================================
+
+        == 🧪 阶段四：异步判题 — 逐用例运行与比对 (循环 N 次) ==
+
+        opt 编译成功 或 解释型语言 (isCompiled == 0)
+            Executor -> Calculator : useWeightedScore(testCases)
+            activate Calculator
+            Calculator --> Executor : boolean weightedScore
+            deactivate Calculator
+
+            note over Executor : 非加权: score = AC数量/N*100\n加权: score = Σ(AC用例分)/Σ(总分配分)*100
+
+            loop i = 1 to testCases.size()   (逐用例判题)
+
+                Executor -> GoJudgeClient : run(language, fileIds, code,\n  testCase[i], timeLimit, memoryLimit)
+                activate GoJudgeClient
+
+                GoJudgeClient -> GoJudgeClient : buildRunCmd()\n构建 Cmd:\n• args: ["./main"] 或 ["python3", "main.py"]\n• files[0]: stdin=testCase.input\n• files[1]: stdout (max 64MB)\n• files[2]: stderr (max 64MB)\n• cpuLimit: timeLimit × multiplier (ns)\n• memoryLimit: memoryLimit × multiplier (bytes)\n• copyIn: { "main": {"fileId":"abc123"} }
+
+                GoJudgeClient -> GoJudge : POST /run\n[{ "args": [...],\n   "files": [{"content": testCase.input}, ...],\n   "cpuLimit": ..., "memoryLimit": ...,\n   "copyIn": { "main": {"fileId":"abc123"} } }]
+                activate GoJudge
+
+                GoJudge -> GoJudge : Docker 隔离容器内执行\n• 挂载可执行文件 (fileId)\n• 注入 stdin = 测试用例输入\n• 限制 CPU/内存/输出大小\n• 收集 stdout/stderr\n• 监控资源使用 (time/memory)
+
+                GoJudge --> GoJudgeClient : GoJudgeResult\n{ status, exitStatus, time(ns),\n  memory(bytes), files: {"stdout", "stderr"} }
+                deactivate GoJudge
+
+                GoJudgeClient --> Executor : GoJudgeResult
+                deactivate GoJudgeClient
+
+                Executor -> Executor : buildBaseCaseResult()\n转换 time: ns→ms, memory: bytes→KB
+
+                ' === 处理运行异常 ===
+                alt runResult == null
+                    Executor -> Calculator : mapExecutionFailure(null)
+                    activate Calculator
+                    Calculator --> Executor : CaseFailure(SE, "运行无返回结果")
+                    deactivate Calculator
+                    Executor -> Executor : 设置 status=4(SYSTEM_ERROR)\n→ break 跳出循环
+                else status != "Accepted" (TLE/MLE/RE/OLE)
+                    Executor -> Calculator : mapExecutionFailure(runResult)
+                    activate Calculator
+                    Calculator -> Calculator : 映射 GoJudgeStatus → JudgeStatus\nTLE→6, MLE→7, RE→8, OLE→9
+                    Calculator --> Executor : CaseFailure(status, message)
+                    deactivate Calculator
+                    Executor -> Executor : 设置 caseResult.status=对应错误码\n→ break 跳出循环 (快速失败)
+                else status == "Accepted"
+                    ' === 比对输出 ===
+                    Executor -> Executor : outputAccepted(runResult, testCase)\nstdout.trim() == expectedOutput.trim() ?
+
+                    alt 输出匹配
+                        Executor -> Executor : caseResult.status = 2(ACCEPTED)
+                        Executor -> Calculator : awardedCaseScore(testCase, weighted, accepted=true)
+                        activate Calculator
+                        Calculator --> Executor : score (加权分或1)
+                        deactivate Calculator
+                    else 输出不匹配
+                        Executor -> Executor : caseResult.status = 5(WRONG_ANSWER)
+                        Executor -> Calculator : awardedCaseScore(testCase, weighted, accepted=false)
+                        activate Calculator
+                        Calculator --> Executor : score = 0
+                        deactivate Calculator
+                    end
+
+                    ' === 持久化单个用例结果 ===
+                    Executor -> MySQL : INSERT INTO submission_case_result\n(submissionId, testCaseId, caseOrder,\n status, score, timeUsed, memoryUsed)
+                    activate MySQL
+                    MySQL --> Executor : OK
+                    deactivate MySQL
+                end
+            end
+
+            ' ============================================================
+            ' 阶段五：异步判题 — 汇总计算与持久化
+            ' ============================================================
+
+            == 📊 阶段五：异步判题 — 汇总计算 (JudgeResultCalculator) ==
+
+            Executor -> Calculator : buildSummary(submissionId, testCases,\n  caseResults, forcedStatus, errorMessage, compileMessage)
+            activate Calculator
+
+            Calculator -> Calculator : 1. countAccepted(caseResults)\n→ passedCaseCount
+            Calculator -> Calculator : 2. calculateScore(testCases, caseResults)\n非加权: AC数/总数*100\n加权: ΣAC分/Σ总分*100
+            Calculator -> Calculator : 3. maxTime(caseResults)\n→ maxTimeUsed (ms)
+            Calculator -> Calculator : 4. maxMemory(caseResults)\n→ maxMemoryUsed (KB)
+            Calculator -> Calculator : 5. resolveOutputStatus()\n全AC→2, 部分AC→10, 全WA→5
+
+            Calculator --> Executor : SubmissionJudgeResult\n{ status, passedCaseCount, totalCaseCount,\n  score, maxTimeUsed, maxMemoryUsed,\n  errorMessage, compileMessage, finishTime }
+            deactivate Calculator
+
+            ' === 最终持久化 ===
+            Executor -> MySQL : UPDATE submission_judge_result SET\nstatus=?, passedCaseCount=?, totalCaseCount=?,\nscore=?, maxTimeUsed=?, maxMemoryUsed=?,\nerrorMessage=?, finishTime=NOW()\nWHERE submissionId=?
+            activate MySQL
+            MySQL --> Executor : OK
+            deactivate MySQL
+
+            ' === 清理 Go-Judge 缓存文件 ===
+            opt fileIds != null
+                loop for each fileId in fileIds
+                    Executor -> GoJudgeClient : deleteFile(fileId)
+                    activate GoJudgeClient
+                    GoJudgeClient -> GoJudge : DELETE /file/{fileId}
+                    activate GoJudge
+                    GoJudge --> GoJudgeClient : 204 No Content
+                    deactivate GoJudge
+                    GoJudgeClient --> Executor : 删除成功
+                    deactivate GoJudgeClient
+                end
+            end
+        end
+    end
+end
+
+deactivate Executor
+
+' ============================================================
+' 阶段六：客户端轮询查询判题结果
+' ============================================================
+
+== 🔍 阶段六：客户端查询判题结果 (GET /submission/{id}) ==
+
+Client -> Gateway : GET /submission/123...
+activate Gateway
+Gateway -> Gateway : AuthGlobalFilter\nJWT 验证 + X-User-Id 注入
+
+Gateway -> JudgeCtrl : 路由转发\nHeaders: X-User-Id: {userId}
+deactivate Gateway
+activate JudgeCtrl
+
+JudgeCtrl -> SubSvc : getSubmissionById(id)
+activate SubSvc
+
+SubSvc -> MySQL : SELECT * FROM submission WHERE id=?
+activate MySQL
+MySQL --> SubSvc : Submission
+deactivate MySQL
+
+SubSvc -> MySQL : SELECT * FROM submission_judge_result\nWHERE submissionId=?
+activate MySQL
+MySQL --> SubSvc : SubmissionJudgeResult\n{ status, score, passedCaseCount, ... }
+deactivate MySQL
+
+SubSvc -> MySQL : SELECT * FROM submission_case_result\nWHERE submissionId=?\nORDER BY caseOrder
+activate MySQL
+MySQL --> SubSvc : List<SubmissionCaseResult>
+deactivate MySQL
+
+SubSvc -> SubSvc : 组装 SubmissionDetailVO\n{ ...submissionVO,\n  caseResults: [ { caseOrder, status, score,\n    timeUsed, memoryUsed }, ... ] }
+
+SubSvc --> JudgeCtrl : SubmissionDetailVO
+deactivate SubSvc
+
+JudgeCtrl --> Client : ResponseResult(200, SubmissionDetailVO)\n{ "status": 2(AC), "score": 100,\n  "passedCaseCount": 3, "totalCaseCount": 3,\n  "caseResults": [...] }
+deactivate JudgeCtrl
+
+' ============================================================
+' 注释说明
+' ============================================================
+
+@enduml

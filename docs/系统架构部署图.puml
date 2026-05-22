@@ -1,0 +1,229 @@
+@startuml EmiyaOJ-Cloud-Architecture-Deployment
+
+' ============================================================
+' EmiyaOJ-Cloud 系统架构部署图 (UML 2.5 规范)
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 11
+skinparam packageStyle rectangle
+skinparam node {
+    BorderColor #555555
+    FontSize 11
+}
+skinparam rectangle {
+    BorderColor #555555
+    FontSize 11
+}
+skinparam component {
+    BorderColor #555555
+    FontSize 11
+}
+
+title **EmiyaOJ-Cloud 在线判题系统 — UML 2.5 部署图**\n(微服务架构 · 前后端分离 · Docker 容器化部署)
+
+' ============================================================
+' 客户端节点
+' ============================================================
+
+node "用户浏览器" as Browser <<device>> {
+    artifact "用户端 SPA\n(Vue 3.5 + Vite)" as UserUI
+    artifact "管理端 SPA\n(Vue 3.5 + Vite)" as AdminUI
+}
+
+node "管理员浏览器" as AdminBrowser <<device>> {
+    artifact "管理端 SPA\n(Vue 3.5 + Vite)" as AdminUI2
+}
+
+' ============================================================
+' Docker 宿主机
+' ============================================================
+
+node "Docker Host (emiyaoj-network)" as DockerHost <<executionEnvironment>> {
+    
+    ' ---- 网关层 ----
+    node "Gateway 容器\n(Port 8080)" as GatewayNode {
+        component "Spring Cloud Gateway\nEmiyaOJ-Gateway" as Gateway
+        note right of Gateway : JWT 认证过滤器\n路由转发 · CORS\nOrder=-100
+    }
+
+    ' ---- 微服务层 ----
+    node "Auth 容器\n(Port 9010)" as AuthNode {
+        component "Auth-Service\n认证服务" as AuthSvc
+        note right of AuthSvc : Spring Security\nBCrypt · JWT · RBAC\nUser/Role/Permission
+    }
+
+    node "Problem 容器\n(Port 9020)" as ProblemNode {
+        component "Problem-Service\n题目服务" as ProblemSvc
+        note right of ProblemSvc : 题目 CRUD\n测试用例 · 语言配置\n标签 · 竞赛 · 题单
+    }
+
+    node "Judge 容器\n(Port 9030)" as JudgeNode {
+        component "Judge-Service\n判题服务" as JudgeSvc
+        note right of JudgeSvc : @Async 异步判题\n提交管理 · 结果查询\nFeign → Problem-Service
+    }
+
+    node "Blog 容器\n(Port 9040)" as BlogNode {
+        component "Blog-Service\n博客服务" as BlogSvc
+        note right of BlogSvc : 博客 · 题解 · 评论\n点赞 · 收藏 · 标签\n审核回调接口
+    }
+
+    node "Chat 容器\n(Port 9050)" as ChatNode {
+        component "Chat-Service\nAI 聊天服务" as ChatSvc
+        note right of ChatSvc : AI 问答\n题目相关对话\nDeepSeek/OpenAI
+    }
+
+    node "Moderation 容器" as ModerationNode {
+        component "Moderation-Service\n审核服务" as ModerationSvc
+        note right of ModerationSvc : @RabbitListener\n阿里云 ScanText\nFeign 回调 Blog-Service
+    }
+
+    ' ---- 基础设施层 ----
+    node "MySQL 容器\n(Port 3306)" as MySQLNode {
+        database "MySQL 8.0.31" as MySQL {
+            component "emiya_oj_auth" as DB_AUTH
+            component "emiya_oj_problem" as DB_PROBLEM
+            component "emiya_oj_judge" as DB_JUDGE
+            component "emiya_oj_blog" as DB_BLOG
+        }
+    }
+
+    node "Redis 容器\n(Port 6379)" as RedisNode {
+        database "Redis 7\n(Token 白名单)" as Redis
+    }
+
+    node "RabbitMQ 容器\n(Port 5672)" as RabbitNode {
+        component "RabbitMQ 3.13" as RabbitMQ {
+            portin "Topic Exchange\nemiyaoj.moderation.exchange" as MQExchange
+        }
+    }
+
+    node "MinIO 容器\n(Port 9000/9001)" as MinioNode {
+        database "MinIO\n(博客图片存储)" as MinIO
+    }
+
+    node "Nacos 容器\n(Port 8848)" as NacosNode {
+        component "Nacos 2.5.1\n(注册中心·配置中心)" as Nacos
+    }
+
+    ' ---- 判题沙箱 ----
+    node "Go-Judge 容器\n(Port 5050 · privileged)" as GoJudgeNode {
+        component "Go-Judge 沙箱\n(隔离编译运行)" as GoJudge
+        note right of GoJudge : Docker-in-Docker\nC/C++ · Java · Python\nGo · JavaScript\nCPU/内存/输出限制
+    }
+
+}
+
+' ============================================================
+' 外部云服务
+' ============================================================
+
+cloud "阿里云" as AliyunCloud {
+    component "内容审核 API\n(imageaudit.aliyuncs.com)" as AliyunModeration
+}
+
+cloud "AI 大模型" as AICloud {
+    component "DeepSeek / OpenAI\n(LLM API)" as LLM
+}
+
+' ============================================================
+' 通信关系 (Communication Paths)
+' ============================================================
+
+' --- 前端 → 网关 ---
+Browser -[#0000FF]-> GatewayNode : HTTPS\nREST API
+AdminBrowser -[#0000FF]-> GatewayNode : HTTPS\nREST API
+
+' --- 网关 → 微服务 (HTTP 路由) ---
+GatewayNode -[#555555]-> AuthNode : HTTP
+GatewayNode -[#555555]-> ProblemNode : HTTP  
+GatewayNode -[#555555]-> JudgeNode : HTTP
+GatewayNode -[#555555]-> BlogNode : HTTP
+GatewayNode -[#555555]-> ChatNode : HTTP
+
+' --- 网关头部注入 ---
+note on link : X-User-Id\nX-User-Name\nX-User-Roles
+
+' --- Feign 微服务间调用 ---
+JudgeNode -[#8B4513]--> ProblemNode : Feign\n(题目/语言/测试用例)
+BlogNode -[#8B4513]--> ProblemNode : Feign\n(题目信息)
+ModerationNode -[#8B4513]--> BlogNode : Feign\n(审核结果回调)
+
+' --- 数据库连接 ---
+AuthNode -[#006400]down-> MySQLNode : JDBC
+ProblemNode -[#006400]down-> MySQLNode : JDBC
+JudgeNode -[#006400]down-> MySQLNode : JDBC
+BlogNode -[#006400]down-> MySQLNode : JDBC
+
+' --- Redis 连接 ---
+GatewayNode -[#FF4500]down-> RedisNode : Reactive\n(JWT 白名单验证)
+AuthNode -[#FF4500]down-> RedisNode : Jedis\n(Token 存取)
+
+' --- RabbitMQ ---
+BlogNode -[#FF8C00]right-> RabbitNode : AMQP\n(发布审核任务)
+ModerationNode -[#FF8C00]left-> RabbitNode : AMQP\n(@RabbitListener 消费)
+
+' --- MinIO ---
+BlogNode -[#FF69B4]down-> MinioNode : S3 API\n(图片上传/下载)
+
+' --- Nacos 注册 ---
+GatewayNode -[#9370DB]down-> NacosNode : 服务发现
+AuthNode -[#9370DB]down-> NacosNode : 服务注册
+ProblemNode -[#9370DB]down-> NacosNode : 服务注册
+JudgeNode -[#9370DB]down-> NacosNode : 服务注册
+BlogNode -[#9370DB]down-> NacosNode : 服务注册
+ChatNode -[#9370DB]down-> NacosNode : 服务注册
+ModerationNode -[#9370DB]down-> NacosNode : 服务注册
+
+' --- Go-Judge ---
+JudgeNode -[#DC143C]right-> GoJudgeNode : HTTP\n(POST /run · 编译&运行)
+
+' --- 外部云服务 ---
+ModerationNode -[#DC143C]right-> AliyunCloud : HTTPS\n(ScanText API)
+ChatNode -[#0000CD]right-> AICloud : HTTPS\n(Chat API)
+
+' ============================================================
+' 注释说明
+' ============================================================
+
+note bottom of DockerHost
+  **Docker Compose 容器编排**
+  ——————————————
+  · 网络: emiyaoj-network (bridge)
+  · 时区: Asia/Shanghai (TZ + JAVA_TOOL_OPTIONS)
+  · 健康检查: 所有服务配置 healthcheck
+  · 数据卷: mysql-data, redis-data, rabbitmq-data, minio-data
+  
+  **微服务端口规划**
+  ——————————
+  | 8080 | Gateway (API 网关)     |
+  | 9010 | Auth-Service (认证)    |
+  | 9020 | Problem-Service (题目)  |
+  | 9030 | Judge-Service (判题)   |
+  | 9040 | Blog-Service (博客)    |
+  | 9050 | Chat-Service (AI 聊天) |
+  | 5050 | Go-Judge (判题沙箱)    |
+  | 8848 | Nacos (注册中心)       |
+  | 3306 | MySQL (数据库)         |
+  | 6379 | Redis (缓存)           |
+  | 5672 | RabbitMQ (消息队列)    |
+  | 9000 | MinIO (对象存储)       |
+  
+  **前端技术栈**
+  ——————
+  · 用户端: Vue 3.5 + Vite + TypeScript
+  · 管理端: Vue 3.5 + Vite + TypeScript
+  · 通信: Axios → Gateway (8080)
+  · 认证: JWT Bearer Token (localStorage)
+  
+  **后端技术栈**
+  ——————
+  · JDK 21 (eclipse-temurin:21-jre-alpine)
+  · Spring Boot 3.5.5 · Spring Cloud 2025.0.0
+  · Spring Cloud Alibaba 2025.0.0.0
+  · MyBatis-Plus 3.5.16 · JJWT 0.12.6
+  · SpringDoc OpenAPI 2.8.6 (Swagger)
+end note
+
+@enduml

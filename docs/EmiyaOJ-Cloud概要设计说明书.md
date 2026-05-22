@@ -120,50 +120,60 @@ Get-Content -Encoding UTF8 -Path docs\概要设计说明书模板.md
 
 系统的主要用户包括访客、普通用户、管理员/教师、内容审核员和运维人员。其核心用例如下：
 
-```mermaid
-graph TB
-    subgraph EmiyaOJ-Cloud
-        subgraph 用户端
-            U1[浏览题目]
-            U2[提交代码]
-            U3[查看判题结果]
-            U4[参与竞赛]
-            U5[发布博客/题解]
-            U6[AI 问答]
-        end
+```plantuml
+@startuml
+left to right direction
+skinparam backgroundColor #FEFEFE
+skinparam packageStyle rectangle
+title EmiyaOJ-Cloud 系统用例总览
 
-        subgraph 管理端
-            A1[用户与权限管理]
-            A2[题目与测试用例管理]
-            A3[语言配置管理]
-            A4[题单与竞赛管理]
-            A5[提交记录查看]
-            A6[博客审核]
-        end
+actor "访客" as Visitor
+actor "普通用户" as User
+actor "管理员/教师" as Admin
+actor "审核人员" as Auditor
+actor "运维人员" as Operator
 
-        subgraph 平台服务
-            S1[网关鉴权]
-            S2[异步判题]
-            S3[文本审核]
-            S4[流水线部署]
-        end
-    end
+rectangle "用户端" {
+  usecase "浏览题目" as U1
+  usecase "提交代码" as U2
+  usecase "查看判题结果" as U3
+  usecase "参与竞赛" as U4
+  usecase "发布博客/题解" as U5
+  usecase "AI 问答" as U6
+}
 
-    Visitor[访客] --> U1
-    Visitor --> U5
-    User[普通用户] --> U1
-    User --> U2
-    User --> U3
-    User --> U4
-    User --> U5
-    User --> U6
-    Admin[管理员/教师] --> A1
-    Admin --> A2
-    Admin --> A3
-    Admin --> A4
-    Admin --> A5
-    Auditor[审核人员] --> A6
-    Operator[运维人员] --> S4
+rectangle "管理端" {
+  usecase "用户与权限管理" as A1
+  usecase "题目与测试用例管理" as A2
+  usecase "语言配置管理" as A3
+  usecase "题单与竞赛管理" as A4
+  usecase "提交记录查看" as A5
+  usecase "博客审核" as A6
+}
+
+rectangle "平台服务" {
+  usecase "网关鉴权" as S1
+  usecase "异步判题" as S2
+  usecase "文本审核" as S3
+  usecase "流水线部署" as S4
+}
+
+Visitor --> U1
+Visitor --> U5
+User --> U1
+User --> U2
+User --> U3
+User --> U4
+User --> U5
+User --> U6
+Admin --> A1
+Admin --> A2
+Admin --> A3
+Admin --> A4
+Admin --> A5
+Auditor --> A6
+Operator --> S4
+@enduml
 ```
 
 ### 2.3 系统边界
@@ -254,64 +264,69 @@ graph TB
 
 系统按前端应用、后端微服务、基础设施和部署流水线进行划分。
 
-```mermaid
-graph TB
-    subgraph Frontend[前端应用]
-        AdminUI[管理端]
-        UserUI[用户端]
-    end
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+title EmiyaOJ-Cloud 系统划分与功能描述 — 组件图
 
-    subgraph Backend[后端微服务]
-        Gateway[EmiyaOJ-Gateway]
-        Common[EmiyaOJ-Common]
-        Auth[EmiyaOJ-Auth]
-        Problem[EmiyaOJ-Problem]
-        Judge[EmiyaOJ-Judge]
-        Blog[EmiyaOJ-Blog]
-        Chat[EmiyaOJ-Chat]
-        Moderation[EmiyaOJ-Moderation]
-    end
+package "前端应用" {
+    [管理端] as AdminUI
+    [用户端] as UserUI
+}
 
-    subgraph Infra[基础设施]
-        MySQL[(MySQL)]
-        Redis[(Redis)]
-        Nacos[Nacos]
-        RabbitMQ[RabbitMQ]
-        MinIO[MinIO]
-        GoJudge[Go-Judge]
-    end
+package "后端微服务" {
+    [EmiyaOJ-Gateway] as Gateway
+    [EmiyaOJ-Common] as Common
+    [EmiyaOJ-Auth] as Auth
+    [EmiyaOJ-Problem] as Problem
+    [EmiyaOJ-Judge] as Judge
+    [EmiyaOJ-Blog] as Blog
+    [EmiyaOJ-Chat] as Chat
+    [EmiyaOJ-Moderation] as Moderation
+}
 
-    subgraph CICD[部署运维]
-        Jenkins[Jenkins]
-        DockerCompose[Docker Compose]
-    end
+package "基础设施" {
+    database "MySQL" as MySQL
+    database "Redis" as Redis
+    node "Nacos" as Nacos
+    queue "RabbitMQ" as RabbitMQ
+    database "MinIO" as MinIO
+    node "Go-Judge" as GoJudge
+}
 
-    AdminUI --> Gateway
-    UserUI --> Gateway
-    Gateway --> Auth
-    Gateway --> Problem
-    Gateway --> Judge
-    Gateway --> Blog
-    Gateway --> Chat
-    Auth --> Redis
-    Auth --> MySQL
-    Problem --> MySQL
-    Judge --> Problem
-    Judge --> GoJudge
-    Judge --> MySQL
-    Blog --> MySQL
-    Blog --> MinIO
-    Blog --> RabbitMQ
-    Moderation --> RabbitMQ
-    Moderation --> Blog
-    Chat --> Redis
-    Auth -.注册.-> Nacos
-    Problem -.注册.-> Nacos
-    Judge -.注册.-> Nacos
-    Blog -.注册.-> Nacos
-    Chat -.注册.-> Nacos
-    Moderation -.注册.-> Nacos
-    Jenkins --> DockerCompose
+package "部署运维" {
+    [Jenkins] as Jenkins
+    [Docker Compose] as DockerCompose
+}
+
+AdminUI --> Gateway
+UserUI --> Gateway
+Gateway --> Auth
+Gateway --> Problem
+Gateway --> Judge
+Gateway --> Blog
+Gateway --> Chat
+Auth --> Redis
+Auth --> MySQL
+Problem --> MySQL
+Judge --> Problem
+Judge --> GoJudge
+Judge --> MySQL
+Blog --> MySQL
+Blog --> MinIO
+Blog --> RabbitMQ
+Moderation --> RabbitMQ
+Moderation --> Blog
+Chat --> Redis
+Auth ..> Nacos : 注册
+Problem ..> Nacos : 注册
+Judge ..> Nacos : 注册
+Blog ..> Nacos : 注册
+Chat ..> Nacos : 注册
+Moderation ..> Nacos : 注册
+Jenkins --> DockerCompose
+@enduml
 ```
 
 | 模块 | 功能描述 |
@@ -334,39 +349,77 @@ graph TB
 
 系统采用“前端应用 + API 网关 + 微服务 + 基础设施”的分层架构。
 
-```mermaid
-graph LR
-    AdminUI[管理端前端] --> GW[Gateway :8080]
-    UserUI[用户端前端] --> GW
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+title EmiyaOJ-Cloud 系统架构模型 — 部署/组件图 (UML 2.5)
 
-    GW --> Auth[Auth Service :9010]
-    GW --> Problem[Problem Service :9020]
-    GW --> Judge[Judge Service :9030]
-    GW --> Blog[Blog Service :9040]
-    GW --> Chat[Chat Service :9050]
-    GW --> Moderation[Moderation Service :9060]
+node "前端层" {
+    [管理端前端] as AdminUI
+    [用户端前端] as UserUI
+}
 
-    Auth --> AuthDB[(emiya_oj_auth)]
-    Problem --> ProblemDB[(emiya_oj_problem)]
-    Judge --> JudgeDB[(emiya_oj_judge)]
-    Blog --> BlogDB[(emiya_oj_blog)]
+node "网关层 :8080" {
+    [Gateway] as GW
+}
 
-    GW --> Redis[(Redis)]
-    Auth --> Redis
-    Blog --> MinIO[(MinIO)]
-    Blog --> RabbitMQ[(RabbitMQ)]
-    Moderation --> RabbitMQ
-    Moderation --> Blog
-    Judge --> GoJudge[Go-Judge :5050]
-    Judge --> Problem
+node "服务层" {
+    [Auth Service\n:9010] as Auth
+    [Problem Service\n:9020] as Problem
+    [Judge Service\n:9030] as Judge
+    [Blog Service\n:9040] as Blog
+    [Chat Service\n:9050] as Chat
+    [Moderation Service\n:9060] as Moderation
+}
 
-    Auth -.-> Nacos[Nacos :8848]
-    Problem -.-> Nacos
-    Judge -.-> Nacos
-    Blog -.-> Nacos
-    Chat -.-> Nacos
-    Moderation -.-> Nacos
-    GW -.-> Nacos
+node "数据层" {
+    database "emiya_oj_auth" as AuthDB
+    database "emiya_oj_problem" as ProblemDB
+    database "emiya_oj_judge" as JudgeDB
+    database "emiya_oj_blog" as BlogDB
+}
+
+node "基础设施" {
+    database "Redis" as Redis
+    database "MinIO" as MinIO
+    queue "RabbitMQ" as RabbitMQ
+    node "Go-Judge\n:5050" as GoJudge
+    node "Nacos\n:8848" as Nacos
+}
+
+AdminUI --> GW : HTTP
+UserUI --> GW : HTTP
+
+GW --> Auth : 路由
+GW --> Problem : 路由
+GW --> Judge : 路由
+GW --> Blog : 路由
+GW --> Chat : 路由
+GW --> Moderation : 路由
+
+Auth --> AuthDB : JDBC
+Problem --> ProblemDB : JDBC
+Judge --> JudgeDB : JDBC
+Blog --> BlogDB : JDBC
+
+GW --> Redis
+Auth --> Redis
+Blog --> MinIO : S3 API
+Blog --> RabbitMQ : AMQP
+Moderation --> RabbitMQ : AMQP
+Moderation --> Blog : Feign
+Judge --> GoJudge : HTTP REST
+Judge --> Problem : Feign
+
+Auth ..> Nacos : 注册
+Problem ..> Nacos : 注册
+Judge ..> Nacos : 注册
+Blog ..> Nacos : 注册
+Chat ..> Nacos : 注册
+Moderation ..> Nacos : 注册
+GW ..> Nacos : 注册
+@enduml
 ```
 
 架构说明：
@@ -384,31 +437,36 @@ graph LR
 
 以“用户端提交代码并完成判题”为核心实现样例：
 
-```mermaid
-sequenceDiagram
-    actor User as 用户端用户
-    participant UI as 用户端
-    participant GW as Gateway
-    participant Judge as Judge Service
-    participant Problem as Problem Service
-    participant DB as Judge DB
-    participant Sandbox as Go-Judge
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+title 代码提交与判题 — 实现样例时序图 (UML 2.5)
 
-    User->>UI: 填写代码并提交
-    UI->>GW: POST /judge/submit
-    GW->>GW: 校验 JWT 和 Redis 白名单
-    GW->>Judge: 转发请求并注入 X-User-Id
-    Judge->>DB: 创建提交记录 PENDING
-    Judge-->>UI: 返回提交 ID
-    Judge->>Problem: 查询题目、语言、测试用例
-    Problem-->>Judge: 返回判题所需数据
-    Judge->>Sandbox: 编译/运行用户代码
-    Sandbox-->>Judge: 返回执行结果
-    Judge->>Judge: 比对输出并计算状态
-    Judge->>DB: 保存明细和汇总结果
-    UI->>GW: 查询提交详情
-    GW->>Judge: GET /submission/{id}
-    Judge-->>UI: 返回判题结果
+actor "用户端用户" as User
+participant "用户端" as UI
+participant "Gateway\n:8080" as GW
+participant "Judge Service\n:9030" as Judge
+participant "Problem Service\n:9020" as Problem
+database "Judge DB" as DB
+participant "Go-Judge\n:5050" as Sandbox
+
+User -> UI: 填写代码并提交
+UI -> GW: POST /judge/submit
+GW -> GW: 校验 JWT 和 Redis 白名单
+GW -> Judge: 转发请求并注入 X-User-Id
+Judge -> DB: 创建提交记录 PENDING
+Judge --> UI: 返回提交 ID
+Judge -> Problem: 查询题目、语言、测试用例
+Problem --> Judge: 返回判题所需数据
+Judge -> Sandbox: 编译/运行用户代码
+Sandbox --> Judge: 返回执行结果
+Judge -> Judge: 比对输出并计算状态
+Judge -> DB: 保存明细和汇总结果
+UI -> GW: 查询提交详情
+GW -> Judge: GET /submission/{id}
+Judge --> UI: 返回判题结果
+@enduml
 ```
 
 ### 4.3 前端概要设计
@@ -501,71 +559,167 @@ sequenceDiagram
 
 #### 4.5.1 登录认证流程
 
-```mermaid
-flowchart TD
-    A[用户输入账号密码] --> B[Gateway 转发登录请求]
-    B --> C[Auth 查询用户和权限]
-    C --> D{密码和状态是否有效}
-    D -- 否 --> E[返回登录失败]
-    D -- 是 --> F[生成 JWT]
-    F --> G[Redis 写入 Token 白名单]
-    G --> H[返回 Token 和用户信息]
-    H --> I[前端保存 Token]
-    I --> J[后续请求携带 Authorization]
-    J --> K[Gateway 校验 JWT 和 Redis]
-    K --> L[注入用户上下文并转发]
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 登录认证流程 — 活动图 (UML 2.5)
+
+|登录阶段|
+start
+:用户输入账号密码;
+:Gateway 转发登录请求到 Auth Service;
+:Auth Service 查询用户信息;
+
+if (密码和账号状态是否有效?) then (否)
+  :返回登录失败及错误提示;
+  detach
+else (是)
+  :生成 JWT Token;
+  :Redis 写入 Token 白名单;
+  :返回 Token 和用户基本信息;
+  :前端保存 Token;
+endif
+
+|后续请求阶段|
+:用户发起后续请求\n携带 Authorization: Bearer {token};
+:Gateway 拦截请求;
+
+if (请求路径在白名单中?) then (是)
+  :直接路由到目标服务;
+  detach
+else (否)
+  :解析 JWT 获取 userId;
+  :校验 Redis 中 token_{userId} 是否存在;
+  if (认证是否通过?) then (否)
+    :返回 401 未认证;
+    detach
+  else (是)
+    :注入 X-User-Id 等请求头;
+    :转发到下游业务服务;
+    detach
+  endif
+endif
+
+stop
+@enduml
 ```
 
 #### 4.5.2 代码提交与判题流程
 
-```mermaid
-flowchart TD
-    A[用户提交代码] --> B[Gateway 认证并转发]
-    B --> C[Judge 创建提交记录]
-    C --> D[返回提交 ID]
-    C --> E[异步判题]
-    E --> F[查询题目/语言/测试用例]
-    F --> G{是否需要编译}
-    G -- 是 --> H[Go-Judge 编译]
-    H --> I{编译是否成功}
-    I -- 否 --> J[记录 CE]
-    I -- 是 --> K[运行测试用例]
-    G -- 否 --> K
-    K --> L[比对输出]
-    L --> M[保存用例结果]
-    M --> N[计算汇总状态]
-    N --> O[更新提交结果]
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 代码提交与判题流程 — 活动图 (UML 2.5)
+
+|提交阶段|
+start
+:用户选择题目和语言提交代码;
+:Gateway 认证并转发到 Judge Service;
+:Judge Service 创建提交记录\nstatus = PENDING;
+
+fork
+  :立即返回提交编号给用户;
+fork again
+  |异步判题阶段|
+  :更新 status = JUDGING;
+  :通过 Feign 获取题目限制条件;
+  :通过 Feign 获取语言编译/运行命令;
+  :通过 Feign 获取全部测试用例;
+  
+  if (是否为编译型语言?) then (是)
+    :调用 Go-Judge 执行编译;
+    if (编译是否成功?) then (否)
+      :记录 CE 状态\ncompileMessage = 编译错误输出;
+      :设置 finalStatus = CE;
+    else (是)
+      :获取编译产物 fileId;
+      :设置编译通过标记;
+    endif
+  else (否)
+    :设置编译通过标记\n(解释型语言无需编译);
+  endif
+  
+  if (编译通过?) then (是)
+    repeat
+      :对当前用例调用 Go-Judge 运行\n传入 stdin、资源限制;
+      :比对标准输出与实际输出;
+      :记录单用例结果\n(status, timeUsed, memoryUsed);
+      :保存 submission_case_result;
+    repeat while (还有未执行的用例?) is (是)
+    ->否;
+    :汇总计算最终状态和得分\n(AC/WA/TLE/MLE/RE/PA);
+    :保存 submission_judge_result;
+  endif
+  
+  :更新 submission 最终状态;
+end fork
+
+|查询阶段|
+:用户查询提交详情;
+:返回判题结果\n(含状态、耗时、内存、用例明细);
+stop
+
+@enduml
 ```
 
 #### 4.5.3 博客审核流程
 
-```mermaid
-flowchart TD
-    A[用户发布博客/评论] --> B[Blog 保存为待审核]
-    B --> C[投递 RabbitMQ 审核任务]
-    C --> D[Moderation 消费任务]
-    D --> E[调用文本审核服务]
-    E --> F{审核建议}
-    F -- 通过 --> G[回写 APPROVED]
-    F -- 拦截 --> H[回写 REJECTED]
-    F -- 复核 --> I[回写 MANUAL_REVIEW]
-    G --> J[公开展示]
-    H --> K[隐藏内容]
-    I --> L[等待人工审核]
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 博客审核流程 — 活动图 (UML 2.5)
+
+start
+:用户发布博客/题解/评论;
+:Blog Service 保存内容\naudit_status = PENDING;
+:投递审核任务到 RabbitMQ;
+:立即返回"发布成功";
+
+:Moderation Service 消费审核任务;
+:调用阿里云文本审核接口;
+
+if (审核建议?) then (通过)
+  :回写 APPROVED;
+  :内容公开展示;
+else if (拦截?)
+  :回写 REJECTED;
+  :内容隐藏;
+else (复核)
+  :回写 MANUAL_REVIEW;
+  :等待管理端人工审核;
+  if (人工审核结果?) then (通过)
+    :回写 APPROVED;
+    :内容公开展示;
+  else (驳回)
+    :回写 REJECTED;
+    :内容隐藏;
+  endif
+endif
+stop
+@enduml
 ```
 
 #### 4.5.4 Jenkins 流水线部署流程
 
-```mermaid
-flowchart LR
-    A[触发 Jenkins 任务] --> B[拉取后端代码]
-    B --> C[Maven 构建]
-    C --> D[拉取/构建前端项目]
-    D --> E[构建 Docker 镜像]
-    E --> F[Docker Compose 更新容器]
-    F --> G[检查容器状态]
-    G --> H[检查 Nacos 注册和核心接口]
-    H --> I[归档构建日志和部署截图]
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title Jenkins 流水线部署流程 — 活动图 (UML 2.5)
+
+start
+:触发 Jenkins 任务;
+:拉取后端仓库代码;
+:Maven 构建所有模块;
+:执行关键单元测试;
+:拉取/构建管理端和用户端;
+:构建各服务 Docker 镜像;
+:Docker Compose 更新容器;
+:检查容器运行状态;
+:检查 Nacos 服务注册;
+:检查 Gateway 和核心接口;
+:保存构建日志和部署截图;
+stop
+@enduml
 ```
 
 ### 4.6 Maven 模块设计
@@ -630,13 +784,52 @@ EmiyaOJ-Cloud
 
 认证数据关系：
 
-```mermaid
-erDiagram
-    USER ||--o{ USER_ROLE : has
-    ROLE ||--o{ USER_ROLE : assigned
-    ROLE ||--o{ ROLE_PERMISSION : owns
-    PERMISSION ||--o{ ROLE_PERMISSION : granted
-    PERMISSION ||--o{ PERMISSION : parent
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 认证数据库 — 实体关系图 (UML 2.5)
+
+entity "user\n用户" as USER {
+  * id : bigint <<PK>>
+  --
+  username : varchar(64) <<UK>>
+  password : varchar(256)
+  status : int
+}
+
+entity "role\n角色" as ROLE {
+  * id : bigint <<PK>>
+  --
+  role_code : varchar(64) <<UK>>
+  role_name : varchar(64)
+}
+
+entity "permission\n权限" as PERMISSION {
+  * id : bigint <<PK>>
+  --
+  parent_id : bigint <<FK>>
+  permission_code : varchar(128) <<UK>>
+  permission_type : int
+}
+
+entity "user_role\n用户角色关联" as USER_ROLE {
+  * id : bigint <<PK>>
+  --
+  user_id : bigint <<FK>>
+  role_id : bigint <<FK>>
+}
+
+entity "role_permission\n角色权限关联" as ROLE_PERMISSION {
+  * role_id : bigint <<PK,FK>>
+  * permission_id : bigint <<PK,FK>>
+}
+
+USER ||--o{ USER_ROLE : has
+ROLE ||--o{ USER_ROLE : assigned
+ROLE ||--o{ ROLE_PERMISSION : owns
+PERMISSION ||--o{ ROLE_PERMISSION : granted
+PERMISSION ||--o{ PERMISSION : parent
+@enduml
 ```
 
 #### 5.2.2 题目数据库
@@ -657,17 +850,97 @@ erDiagram
 
 题目与竞赛数据关系：
 
-```mermaid
-erDiagram
-    PROBLEM ||--o{ TEST_CASE : contains
-    PROBLEM ||--o{ PROBLEM_TAG : tagged
-    TAG ||--o{ PROBLEM_TAG : marks
-    PROBLEM_SET ||--o{ PROBLEM_SET_PROBLEM : includes
-    PROBLEM ||--o{ PROBLEM_SET_PROBLEM : selected
-    CONTEST ||--o{ CONTEST_PROBLEM : includes
-    PROBLEM ||--o{ CONTEST_PROBLEM : used
-    CONTEST ||--o{ CONTEST_REGISTRATION : registers
-    CONTEST ||--o{ CONTEST_ADMIN : manages
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 题目竞赛数据库 — 实体关系图 (UML 2.5)
+
+entity "problem\n题目" as PROBLEM {
+  * id : bigint <<PK>>
+  --
+  title : varchar(256)
+  difficulty : int
+  time_limit : int
+  memory_limit : int
+  status : int
+}
+
+entity "test_case\n测试用例" as TEST_CASE {
+  * id : bigint <<PK>>
+  --
+  problem_id : bigint <<FK>>
+  is_sample : int
+  score : int
+}
+
+entity "tag\n标签" as TAG {
+  * id : bigint <<PK>>
+  --
+  name : varchar(64)
+}
+
+entity "problem_tag\n题目标签关联" as PROBLEM_TAG {
+  * id : bigint <<PK>>
+  --
+  problem_id : bigint <<FK>>
+  tag_id : bigint <<FK>>
+}
+
+entity "problem_set\n题单" as PROBLEM_SET {
+  * id : bigint <<PK>>
+  --
+  title : varchar(256)
+  status : int
+}
+
+entity "problem_set_problem\n题单题目关联" as PROBLEM_SET_PROBLEM {
+  * id : bigint <<PK>>
+  --
+  problem_set_id : bigint <<FK>>
+  problem_id : bigint <<FK>>
+  sort_order : int
+}
+
+entity "contest\n竞赛" as CONTEST {
+  * id : bigint <<PK>>
+  --
+  title : varchar(256)
+  rule_type : int
+  start_time : datetime
+  end_time : datetime
+}
+
+entity "contest_problem\n竞赛题目" as CONTEST_PROBLEM {
+  * id : bigint <<PK>>
+  --
+  contest_id : bigint <<FK>>
+  problem_id : bigint <<FK>>
+}
+
+entity "contest_registration\n竞赛报名" as CONTEST_REGISTRATION {
+  * id : bigint <<PK>>
+  --
+  contest_id : bigint <<FK>>
+  user_id : bigint <<FK>>
+}
+
+entity "contest_admin\n竞赛管理员" as CONTEST_ADMIN {
+  * id : bigint <<PK>>
+  --
+  contest_id : bigint <<FK>>
+  user_id : bigint <<FK>>
+}
+
+PROBLEM ||--o{ TEST_CASE : contains
+PROBLEM ||--o{ PROBLEM_TAG : tagged
+TAG ||--o{ PROBLEM_TAG : marks
+PROBLEM_SET ||--o{ PROBLEM_SET_PROBLEM : includes
+PROBLEM ||--o{ PROBLEM_SET_PROBLEM : selected
+CONTEST ||--o{ CONTEST_PROBLEM : includes
+PROBLEM ||--o{ CONTEST_PROBLEM : used
+CONTEST ||--o{ CONTEST_REGISTRATION : registers
+CONTEST ||--o{ CONTEST_ADMIN : manages
+@enduml
 ```
 
 #### 5.2.3 判题数据库
@@ -680,10 +953,44 @@ erDiagram
 
 判题数据关系：
 
-```mermaid
-erDiagram
-    SUBMISSION ||--o{ SUBMISSION_CASE_RESULT : has
-    SUBMISSION ||--o{ SUBMISSION_JUDGE_RESULT : summary
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 判题数据库 — 实体关系图 (UML 2.5)
+
+entity "submission\n提交记录" as SUBMISSION {
+  * id : bigint <<PK>>
+  --
+  problem_id : bigint
+  user_id : bigint
+  language_id : bigint
+  code : text
+  status : int
+}
+
+entity "submission_case_result\n用例判题明细" as SUBMISSION_CASE_RESULT {
+  * id : bigint <<PK>>
+  --
+  submission_id : bigint <<FK>>
+  test_case_id : bigint
+  status : int
+  time_used : int
+  memory_used : int
+}
+
+entity "submission_judge_result\n判题汇总结果" as SUBMISSION_JUDGE_RESULT {
+  * id : bigint <<PK>>
+  --
+  submission_id : bigint <<FK,UK>>
+  status : int
+  score : int
+  passed_case_count : int
+  total_case_count : int
+}
+
+SUBMISSION ||--o{ SUBMISSION_CASE_RESULT : has
+SUBMISSION ||--o| SUBMISSION_JUDGE_RESULT : summary
+@enduml
 ```
 
 #### 5.2.4 博客数据库
@@ -701,14 +1008,71 @@ erDiagram
 
 博客数据关系：
 
-```mermaid
-erDiagram
-    BLOG ||--o{ BLOG_COMMENT : comments
-    BLOG ||--o{ BLOG_LIKE : liked
-    BLOG ||--o{ BLOG_STAR : starred
-    BLOG ||--o{ BLOG_TAG_ASSOCIATION : tagged
-    BLOG_TAG ||--o{ BLOG_TAG_ASSOCIATION : marks
-    BLOG ||--o{ BLOG_PICTURE : binds
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title 博客数据库 — 实体关系图 (UML 2.5)
+
+entity "blog\n博客/题解" as BLOG {
+  * id : bigint <<PK>>
+  --
+  user_id : bigint
+  problem_id : bigint
+  title : varchar(256)
+  content : text
+  audit_status : int
+}
+
+entity "blog_comment\n评论" as BLOG_COMMENT {
+  * id : bigint <<PK>>
+  --
+  blog_id : bigint <<FK>>
+  user_id : bigint
+  content : text
+  audit_status : int
+}
+
+entity "blog_like\n点赞" as BLOG_LIKE {
+  * id : bigint <<PK>>
+  --
+  user_id : bigint
+  blog_id : bigint <<FK>>
+}
+
+entity "blog_star\n收藏" as BLOG_STAR {
+  * id : bigint <<PK>>
+  --
+  user_id : bigint
+  blog_id : bigint <<FK>>
+}
+
+entity "blog_picture\n图片" as BLOG_PICTURE {
+  * url : varchar(512) <<PK>>
+  --
+  user_id : bigint
+  size : bigint
+}
+
+entity "blog_tag\n标签" as BLOG_TAG {
+  * id : bigint <<PK>>
+  --
+  tag : varchar(64)
+}
+
+entity "blog_tag_association\n博客标签关联" as BLOG_TAG_ASSOCIATION {
+  * id : bigint <<PK>>
+  --
+  blog_id : bigint <<FK>>
+  tag_id : bigint <<FK>>
+}
+
+BLOG ||--o{ BLOG_COMMENT : comments
+BLOG ||--o{ BLOG_LIKE : liked
+BLOG ||--o{ BLOG_STAR : starred
+BLOG ||--o{ BLOG_TAG_ASSOCIATION : tagged
+BLOG_TAG ||--o{ BLOG_TAG_ASSOCIATION : marks
+BLOG ||--o{ BLOG_PICTURE : binds
+@enduml
 ```
 
 ### 5.3 数据设计约束
@@ -840,14 +1204,21 @@ Docker Compose 负责在演示环境中启动基础设施和业务服务：
 
 Jenkins 流水线用于固化构建部署过程：
 
-```mermaid
-flowchart LR
-    A[Checkout] --> B[Maven Build]
-    B --> C[Backend Docker Build]
-    C --> D[Frontend Build]
-    D --> E[Compose Deploy]
-    E --> F[Health Check]
-    F --> G[Archive Logs]
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title Jenkins 流水线阶段 — 活动图 (UML 2.5)
+
+start
+:Checkout\n拉取后端仓库和前端仓库;
+:Maven Build\n构建后端多模块项目;
+:Backend Docker Build\n构建业务服务镜像;
+:Frontend Build\n构建管理端和用户端静态资源;
+:Compose Deploy\n使用 Docker Compose 更新容器;
+:Health Check\n检查容器状态、Nacos 注册、\nGateway 和前端访问地址;
+:Archive Logs\n保存构建日志和部署截图;
+stop
+@enduml
 ```
 
 | 阶段 | 说明 |

@@ -1,0 +1,317 @@
+@startuml EmiyaOJ-Cloud-Architecture-Component
+
+' ============================================================
+' EmiyaOJ-Cloud 系统架构组件图 (UML 2.5 规范)
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 11
+skinparam packageStyle rectangle
+skinparam component {
+    BorderColor #555555
+}
+
+title **EmiyaOJ-Cloud 微服务架构组件图**\n(UML 2.5 规范 · 前后端分离 · 服务依赖与接口)
+
+' ============================================================
+' 前端层
+' ============================================================
+
+package "前端层 (Browser)" #LightSteelBlue {
+    
+    package "用户端 (Vue 3.5 + Vite)" #E8F5E9 {
+        [用户界面\nRouter/Views] as UserViews
+        [状态管理\nPinia Store] as UserStore
+        [HTTP 客户端\nAxios] as UserAxios
+        UserViews --> UserStore
+        UserStore --> UserAxios
+    }
+
+    package "管理端 (Vue 3.5 + Vite)" #FFF3E0 {
+        [管理界面\nRouter/Views] as AdminViews
+        [状态管理\nPinia Store] as AdminStore
+        [HTTP 客户端\nAxios] as AdminAxios
+        AdminViews --> AdminStore
+        AdminStore --> AdminAxios
+    }
+}
+
+' ============================================================
+' API 网关层
+' ============================================================
+
+package "API 网关层 (Port 8080)" #LightSteelBlue {
+    
+    component "Spring Cloud Gateway" as GatewayComp {
+        
+        [AuthGlobalFilter\n(全局认证过滤器)] as GwFilter
+        [路由配置\nRouteLocator] as GwRoutes
+        [CORS 配置] as GwCORS
+        
+        GwFilter --> GwRoutes : 白名单放行/认证转发
+        
+        interface "REST API\n(外部入口)" as GwAPI
+        GwAPI -down- GwFilter
+    }
+    
+    component "JWT 解析器" as GwJWT {
+        [JJWT\nHMAC-SHA256] as JwtParser
+    }
+    
+    component "ReactiveRedis" as GwRedis {
+        [ReactiveStringRedisTemplate\nToken 白名单验证] as ReactiveRedis
+    }
+    
+    GwFilter --> GwJWT : 解析 Bearer Token
+    GwFilter --> GwRedis : EXISTS token_{userId}
+}
+
+' ============================================================
+' 微服务层
+' ============================================================
+
+package "微服务层" #LightCyan {
+    
+    ' ---- Auth Service ----
+    package "Auth-Service (9010)" #E3F2FD {
+        [AuthController\n/auth/**] as AuthCtrl
+        [UserController\n/user/**] as UserCtrl
+        [RoleController\n/role/**] as RoleCtrl
+        [PermissionController\n/permission/**] as PermCtrl
+        
+        [AuthService\n登录·登出·Token解析] as AuthSvcComp
+        [UserServiceImpl\n用户 CRUD] as UserSvcComp
+        [RoleServiceImpl\n角色管理] as RoleSvcComp
+        [PermissionServiceImpl\n权限树管理] as PermSvcComp
+        [UserDetailsServiceImpl\nSpring Security] as UserDetails
+        
+        [JwtUtil\nJWT 生成] as AuthJWT
+        [RedisUtil\nToken 存取] as AuthRedis
+        
+        [SecurityConfig\nBCrypt · STATELESS] as Security
+        
+        AuthCtrl --> AuthSvcComp
+        UserCtrl --> UserSvcComp
+        RoleCtrl --> RoleSvcComp
+        PermCtrl --> PermSvcComp
+        
+        AuthSvcComp --> Security : AuthenticationManager
+        Security --> UserDetails : loadUserByUsername()
+        UserDetails --> UserSvcComp : 查询用户+权限
+        AuthSvcComp --> AuthJWT : createJWT()
+        AuthSvcComp --> AuthRedis : set("token_"+userId)
+        
+        interface "Auth API\n(Feign)" as AuthFeignAPI
+        AuthCtrl --> AuthFeignAPI : GET /auth/user/parse-token
+    }
+    
+    ' ---- Problem Service ----
+    package "Problem-Service (9020)" #E8F5E9 {
+        [ProblemController\n/problem/**] as ProbCtrl
+        [TestCaseController\n/test-case/**] as TCCtrl
+        [LanguageController\n/language/**] as LangCtrl
+        [ContestController\n/contest/**] as ContestCtrl
+        [ProblemSetController\n/problem-set/**] as PSetCtrl
+        
+        [ProblemService\n题目 CRUD] as ProbSvcComp
+        [TestCaseService\n测试用例管理] as TCSvcComp
+        [LanguageService\n语言配置] as LangSvcComp
+        [ContestService\n竞赛管理·报名·排名] as ContestSvcComp
+        [ProblemSetService\n题单管理] as PSetSvcComp
+        
+        ProbCtrl --> ProbSvcComp
+        TCCtrl --> TCSvcComp
+        LangCtrl --> LangSvcComp
+        ContestCtrl --> ContestSvcComp
+        PSetCtrl --> PSetSvcComp
+        
+        interface "Problem API\n(Feign)" as ProbFeignAPI
+        ProbCtrl --> ProbFeignAPI : GET /problem/{id}
+        TCCtrl --> ProbFeignAPI : GET /test-case/problem/{id}
+        LangCtrl --> ProbFeignAPI : GET /language/{id}
+        ContestCtrl --> ProbFeignAPI : GET /contest/internal/{id}/submit-check
+    }
+    
+    ' ---- Judge Service ----
+    package "Judge-Service (9030)" #FFF9C4 {
+        [JudgeController\n/judge/**] as JudgeCtrlComp
+        [SubmissionController\n/submission/**] as SubCtrl
+        
+        [SubmissionService\n提交管理] as SubSvcComp
+        [JudgeExecutor\n@Async 异步判题] as JudgeExec
+        [GoJudgeService\n沙箱 HTTP 客户端] as GoJudgeCli
+        [JudgeResultCalculator\n结果汇总] as CalculatorComp
+        [LanguageCommandBuilder\n编译运行命令] as CmdBuilderComp
+        
+        JudgeCtrlComp --> SubSvcComp
+        SubCtrl --> SubSvcComp
+        SubSvcComp --> JudgeExec : executeJudgeAsync()
+        JudgeExec --> GoJudgeCli : compile() / run()
+        GoJudgeCli --> CmdBuilderComp : compileArgs / runArgs
+        JudgeExec --> CalculatorComp : buildSummary()
+        
+        interface "Judge API\n(Feign)" as JudgeFeignAPI
+        SubCtrl --> JudgeFeignAPI : GET /submission/{id}
+    }
+    
+    ' ---- Blog Service ----
+    package "Blog-Service (9040)" #F3E5F5 {
+        [BlogController\n/blog/**] as BlogCtrlComp
+        [BlogImageController\n/blog/images/**] as ImgCtrl
+        
+        [BlogServiceImpl\n博客·评论 CRUD] as BlogSvcComp
+        [UserBlogServiceImpl\n用户博客统计] as UserBlogSvc
+        [BlogImageServiceImpl\nMinIO 图片管理] as ImgSvc
+        [ModerationTaskPublisher\nRabbitMQ 发布者] as MQPub
+        
+        BlogCtrlComp --> BlogSvcComp
+        BlogCtrlComp --> UserBlogSvc
+        ImgCtrl --> ImgSvc
+        BlogSvcComp --> MQPub : publishBlog/Comment()
+        
+        interface "Blog API\n(Feign)" as BlogFeignAPI
+        BlogCtrlComp --> BlogFeignAPI : POST /blog/internal/moderation/result
+        BlogCtrlComp --> BlogFeignAPI : GET /blog/{id}
+    }
+    
+    ' ---- Chat Service ----
+    package "Chat-Service (9050)" #E0F7FA {
+        [ChatController\n/client/chat/**] as ChatCtrl
+        [ChatServiceImpl\n消息处理] as ChatSvcComp
+        
+        ChatCtrl --> ChatSvcComp
+        
+        interface "Chat API\n(Feign)" as ChatFeignAPI
+        ChatCtrl --> ChatFeignAPI : POST /client/chat/send
+    }
+    
+    ' ---- Moderation Service ----
+    package "Moderation-Service" #FFECB3 {
+        [ModerationTaskConsumer\n@RabbitListener] as MQConsumer
+        [TextModerationService\n阿里云 ScanText] as TextMod
+        [AliyunImageAuditClient\n阿里云 SDK] as AliyunSDK
+        
+        MQConsumer --> TextMod : moderate()
+        TextMod --> AliyunSDK : scanTextWithOptions()
+    }
+
+}
+
+' ============================================================
+' 公共服务
+' ============================================================
+
+package "EmiyaOJ-Common\n(公共模块)" #EEEEEE {
+    [ResponseResult<T>\n统一响应体] as RespResult
+    [JwtUtil\nJWT 工具类] as CommonJWT
+    [RedisUtil\nRedis 工具类] as CommonRedis
+    [BaseContext\nThreadLocal 上下文] as BaseCtx
+    [GlobalExceptionHandler\n全局异常处理] as GlobalEx
+}
+
+' ============================================================
+' 基础设施
+' ============================================================
+
+package "基础设施" #LightYellow {
+    database "emiya_oj_auth" as db_auth
+    database "emiya_oj_problem" as db_prob
+    database "emiya_oj_judge" as db_judge
+    database "emiya_oj_blog" as db_blog
+}
+
+package "中间件" #LightYellow {
+    database "Redis\n(Token 白名单)" as redis_comp
+    component "RabbitMQ\nTopic Exchange" as mq
+    component "RabbitMQ\nBlog/Comment Queue" as mq2
+    database "MinIO\n(S3 对象存储)" as minio_comp
+}
+
+package "注册中心" #LightYellow {
+    component "Nacos\n(服务注册·配置)" as nacos_comp
+}
+
+' ============================================================
+' 外部系统
+' ============================================================
+
+cloud "阿里云" as Aliyun {
+    [内容审核 API\nScanText] as AliyunAPI
+}
+
+cloud "AI 大模型" as AI {
+    [DeepSeek/OpenAI\nLLM API] as LLM_API
+}
+
+package "Go-Judge 沙箱" #FFCDD2 {
+    [go-judge\n:5050/run] as GoJudgeAPI
+}
+
+' ============================================================
+' 依赖关系 (跨模块)
+' ============================================================
+
+' 前端 → 网关
+UserAxios -down-> GwAPI : HTTPS · Bearer Token
+AdminAxios -down-> GwAPI : HTTPS · Bearer Token
+
+' 网关 → 微服务 (路由)
+GwRoutes -down-> AuthCtrl : /auth/**
+GwRoutes -down-> ProbCtrl : /problem/** | /language/** | /contest/**
+GwRoutes -down-> JudgeCtrlComp : /judge/** | /submission/**
+GwRoutes -down-> BlogCtrlComp : /blog/**
+GwRoutes -down-> ChatCtrl : /client/chat/**
+
+' Feign 调用
+JudgeExec -left-> ProbFeignAPI : 获取题目/语言/测试用例
+BlogSvcComp -left-> ProbFeignAPI : 获取题目信息
+MQConsumer -left-> BlogFeignAPI : 回调审核结果 (内部 Token)
+
+' 数据库
+AuthSvcComp -down-> db_auth : JDBC
+ProbSvcComp -down-> db_prob : JDBC
+SubSvcComp -down-> db_judge : JDBC
+BlogSvcComp -down-> db_blog : JDBC
+
+' Redis
+GwRedis -down-> redis_comp : Reactive
+AuthRedis -down-> redis_comp : Jedis
+
+' RabbitMQ
+MQPub -down-> mq : AMQP 发布
+MQConsumer -down-> mq2 : AMQP 消费
+
+' MinIO
+ImgSvc -down-> minio_comp : S3 API
+
+' Nacos
+GwRoutes -down-> nacos_comp : 服务发现
+
+' 外部服务
+AliyunSDK -down-> AliyunAPI : HTTPS
+ChatSvcComp -down-> LLM_API : HTTPS
+GoJudgeCli -down-> GoJudgeAPI : HTTP POST /run
+
+' ============================================================
+' 注释说明
+' ============================================================
+
+note top of UserAxios
+  **UML 2.5 组件图规范要素**
+  ————————————
+  ◇ **组件** (Component): 用方括号 [ ] 表示
+  ◇ **接口** (Interface): 用圆圈或矩形接口表示
+  ◇ **依赖** (Dependency): 虚线箭头 --> 
+  ◇ **包** (Package): 用 folder 分组
+  ◇ **端口** (Port): 组件对外暴露点
+  
+  **模块化设计**
+  ——————
+  · 每个微服务 = api + dto + service 三模块
+  · api 模块: Feign 接口声明 (供其他服务调用)
+  · dto 模块: 传输对象 (Request/Response VO)
+  · service 模块: 业务实现 + 持久化
+end note
+
+@enduml

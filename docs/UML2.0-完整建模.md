@@ -30,10 +30,17 @@
 
 ```plantuml
 @startuml EmiyaOJ-Cloud-UseCase
+' ====== 美化设置 ======
 skinparam packageStyle rectangle
 skinparam actorStyle awesome
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam defaultFontSize 11
+skinparam roundcorner 8
 left to right direction
 
+' ====== 参与者（左侧纵向排列） ======
 actor "访客" as Visitor <<人员>>
 actor "注册用户" as User <<人员>>
 actor "管理员" as Admin <<人员>>
@@ -41,109 +48,125 @@ actor "审核人员" as Moderator <<人员>>
 actor "Go-Judge\n判题沙箱" as GoJudge <<外部系统>>
 actor "阿里云\n内容审核" as AliyunMod <<外部系统>>
 
+' 参与者纵向对齐
+Visitor -[hidden]down- User
+User -[hidden]down- Admin
+Admin -[hidden]down- Moderator
+Moderator -[hidden]down- GoJudge
+GoJudge -[hidden]down- AliyunMod
+
+' ====== 系统边界 ======
 rectangle "EmiyaOJ-Cloud 在线判题系统" as System {
-  
-  rectangle "认证模块" {
-    usecase "用户注册" as UC_Register
-    usecase "用户登录" as UC_Login
-    usecase "用户登出" as UC_Logout
-    usecase "Token 验证" as UC_Token
+
+  together {
+    rectangle "认证模块" {
+      usecase "用户注册" as UC_Register
+      usecase "用户登录" as UC_Login
+      usecase "用户登出" as UC_Logout
+      usecase "Token 验证" as UC_Token
+    }
+
+    rectangle "题目模块" {
+      usecase "浏览题目列表" as UC_BrowseProblem
+      usecase "查看题目详情" as UC_ViewProblem
+      usecase "创建/编辑题目" as UC_ManageProblem
+      usecase "管理测试用例" as UC_ManageTestCase
+      usecase "管理编程语言" as UC_ManageLanguage
+      usecase "管理题目标签" as UC_ManageTag
+    }
   }
 
-  rectangle "题目模块" {
-    usecase "浏览题目列表" as UC_BrowseProblem
-    usecase "查看题目详情" as UC_ViewProblem
-    usecase "创建/编辑题目" as UC_ManageProblem
-    usecase "管理测试用例" as UC_ManageTestCase
-    usecase "管理编程语言" as UC_ManageLanguage
-    usecase "管理题目标签" as UC_ManageTag
+  together {
+    rectangle "判题模块" {
+      usecase "提交代码" as UC_SubmitCode
+      usecase "查看提交记录" as UC_ViewSubmission
+      usecase "查看判题结果" as UC_ViewResult
+      usecase "执行代码编译运行" as UC_ExecuteJudge
+    }
+
+    rectangle "博客模块" {
+      usecase "浏览博客" as UC_BrowseBlog
+      usecase "发布/编辑博客" as UC_PublishBlog
+      usecase "发表评论" as UC_Comment
+      usecase "收藏/点赞博客" as UC_StarBlog
+      usecase "管理博客标签" as UC_ManageBlogTag
+    }
+
+    rectangle "竞赛模块" {
+      usecase "浏览竞赛" as UC_BrowseContest
+      usecase "报名竞赛" as UC_RegisterContest
+      usecase "创建/管理竞赛" as UC_ManageContest
+      usecase "查看排行榜" as UC_ViewRanking
+    }
   }
 
-  rectangle "判题模块" {
-    usecase "提交代码" as UC_SubmitCode
-    usecase "查看提交记录" as UC_ViewSubmission
-    usecase "查看判题结果" as UC_ViewResult
-    usecase "执行代码编译运行" as UC_ExecuteJudge
-  }
+  together {
+    rectangle "AI 助手模块" {
+      usecase "发送 AI 消息" as UC_AIChat
+      usecase "获取代码建议" as UC_AISuggest
+    }
 
-  rectangle "博客模块" {
-    usecase "浏览博客" as UC_BrowseBlog
-    usecase "发布/编辑博客" as UC_PublishBlog
-    usecase "发表评论" as UC_Comment
-    usecase "收藏/点赞博客" as UC_StarBlog
-    usecase "管理博客标签" as UC_ManageBlogTag
-  }
+    rectangle "审核模块" {
+      usecase "自动文本审核" as UC_AutoMod
+      usecase "人工审核复核" as UC_ManualMod
+    }
 
-  rectangle "竞赛模块" {
-    usecase "浏览竞赛" as UC_BrowseContest
-    usecase "报名竞赛" as UC_RegisterContest
-    usecase "创建/管理竞赛" as UC_ManageContest
-    usecase "查看排行榜" as UC_ViewRanking
-  }
-
-  rectangle "AI 助手模块" {
-    usecase "发送 AI 消息" as UC_AIChat
-    usecase "获取代码建议" as UC_AISuggest
-  }
-
-  rectangle "审核模块" {
-    usecase "自动文本审核" as UC_AutoMod
-    usecase "人工审核复核" as UC_ManualMod
-  }
-
-  rectangle "管理模块" {
-    usecase "用户管理" as UC_ManageUser
-    usecase "角色管理" as UC_ManageRole
-    usecase "权限管理" as UC_ManagePerm
-    usecase "提交记录管理" as UC_ManageSubmission
+    rectangle "管理模块" {
+      usecase "用户管理" as UC_ManageUser
+      usecase "角色管理" as UC_ManageRole
+      usecase "权限管理" as UC_ManagePerm
+      usecase "提交记录管理" as UC_ManageSubmission
+    }
   }
 }
 
-' === 访客 ===
-Visitor --> UC_Register
-Visitor --> UC_Login
-Visitor --> UC_BrowseProblem
-Visitor --> UC_ViewProblem
-Visitor --> UC_BrowseBlog
-Visitor --> UC_BrowseContest
+' ====== 访客关联（水平连线） ======
+Visitor -right-> UC_Register
+Visitor -right-> UC_Login
+Visitor -down-> UC_BrowseProblem
+Visitor -down-> UC_ViewProblem
+Visitor -down-> UC_BrowseBlog
+Visitor -down-> UC_BrowseContest
 
-' === 注册用户（继承访客） ===
+' ====== 角色继承 ======
 User --|> Visitor
-User --> UC_Logout
-User --> UC_SubmitCode
-User --> UC_ViewSubmission
-User --> UC_ViewResult
-User --> UC_PublishBlog
-User --> UC_Comment
-User --> UC_StarBlog
-User --> UC_RegisterContest
-User --> UC_ViewRanking
-User --> UC_AIChat
-User --> UC_AISuggest
-
-' === 管理员（继承注册用户） ===
 Admin --|> User
-Admin --> UC_ManageProblem
-Admin --> UC_ManageTestCase
-Admin --> UC_ManageLanguage
-Admin --> UC_ManageTag
-Admin --> UC_ManageContest
-Admin --> UC_ManageBlogTag
-Admin --> UC_ManageUser
-Admin --> UC_ManageRole
-Admin --> UC_ManagePerm
-Admin --> UC_ManageSubmission
-Admin --> UC_ManualMod
 
-' === 审核人员 ===
-Moderator --> UC_ManualMod
-Moderator --> UC_AutoMod
+' ====== 注册用户关联 ======
+User -right-> UC_Logout
+User -down-> UC_SubmitCode
+User -down-> UC_ViewSubmission
+User -right-> UC_ViewResult
+User -down-> UC_PublishBlog
+User -right-> UC_Comment
+User -right-> UC_StarBlog
+User -down-> UC_RegisterContest
+User -right-> UC_ViewRanking
+User -down-> UC_AIChat
+User -right-> UC_AISuggest
 
-' === 外部系统参与 ===
-GoJudge --> UC_ExecuteJudge
-AliyunMod --> UC_AutoMod
+' ====== 管理员关联 ======
+Admin -down-> UC_ManageProblem
+Admin -down-> UC_ManageTestCase
+Admin -down-> UC_ManageLanguage
+Admin -down-> UC_ManageTag
+Admin -down-> UC_ManageContest
+Admin -right-> UC_ManageBlogTag
+Admin -down-> UC_ManageUser
+Admin -right-> UC_ManageRole
+Admin -right-> UC_ManagePerm
+Admin -right-> UC_ManageSubmission
+Admin -right-> UC_ManualMod
 
-' === 用例间关系 ===
+' ====== 审核人员 ======
+Moderator -right-> UC_ManualMod
+Moderator -right-> UC_AutoMod
+
+' ====== 外部系统参与 ======
+GoJudge -right-> UC_ExecuteJudge
+AliyunMod -right-> UC_AutoMod
+
+' ====== 用例间关系（虚线依赖） ======
 UC_SubmitCode ..> UC_ExecuteJudge : <<include>>
 UC_ManageSubmission ..> UC_ViewResult : <<extend>>
 UC_PublishBlog ..> UC_AutoMod : <<include>>
@@ -181,67 +204,86 @@ UC_RegisterContest ..> UC_Token : <<include>>
 
 ```plantuml
 @startuml Judge-Activity
+' ====== 美化设置 ======
+skinparam defaultFontSize 11
+skinparam activityBorderColor #1565C0
+skinparam activityBackgroundColor #E3F2FD
+skinparam startColor #C8E6C9
+skinparam endColor #FFCDD2
+skinparam arrowColor #546E7A
+
 |用户端|
 start
 :选择题目和编程语言;
 :编写/粘贴源代码;
 :点击"提交代码";
+
 |Gateway|
 :接收请求，提取 Token;
 if (Token 有效?) then (否)
-  :返回 401 未授权;
-  stop
+  #FFCDD2:返回 401 未授权;
+  detach
 else (是)
   :注入 X-User-Id 请求头;
 endif
-|Judge Service|
+
+|#LightBlue|Judge Service|
 :接收提交请求;
 :校验题目是否存在;
 if (题目存在且公开?) then (否)
-  :返回"题目不可用";
-  stop
+  #FFCDD2:返回"题目不可用";
+  detach
 else (是)
 endif
 :校验语言是否启用;
 if (语言已启用?) then (否)
-  :返回"语言不可用";
-  stop
+  #FFCDD2:返回"语言不可用";
+  detach
 else (是)
 endif
-:创建 Submission 记录\n(status = 0 PENDING);
+:创建 Submission 记录
+(status = 0 PENDING);
 :返回 submissionId 给用户;
+
 |#LightBlue|异步判题 (JudgeExecutor)|
 fork
   :更新状态为 JUDGING(1);
+
   |Problem Service|
-  :Feign 调用获取题目详情;
-  :Feign 调用获取语言配置;
-  :Feign 调用获取测试用例列表;
-  |Judge Service|
+  :Feign 获取题目详情;
+  :Feign 获取语言配置;
+  :Feign 获取测试用例列表;
+
+  |#LightBlue|Judge Service|
   if (语言需要编译?) then (是)
     :调用 GoJudgeService.compile();
+
     |Go-Judge 沙箱|
     :在沙箱中编译源代码;
     if (编译成功?) then (否)
-      :返回 CE (编译错误);
-      |Judge Service|
+      #FFCDD2:返回 CE (编译错误);
+      |#LightBlue|Judge Service|
       :保存编译错误信息;
       :更新状态为 CE(3);
-      :更新结束时间;
-      stop
+      detach
     else (是)
     endif
   else (否)
   endif
+
   :逐测试用例运行;
   while (还有未运行用例?) is (是)
-    :调用 GoJudgeService.run()\n传入用例输入和资源限制;
+    :调用 GoJudgeService.run()
+传入用例输入和资源限制;
+
     |Go-Judge 沙箱|
     :在沙箱中运行代码;
-    :返回运行结果 (状态/输出/耗时/内存);
-    |Judge Service|
+    :返回运行结果;
+
+    |#LightBlue|Judge Service|
     :比对输出和标准答案;
     :保存 SubmissionCaseResult;
+
     if (超时?) then (是)
       :标记 TLE;
     elseif (超内存?) then (是)
@@ -254,16 +296,18 @@ fork
       :标记 AC (通过);
     endif
   endwhile (否)
+
   :汇总最终判题状态;
   :计算总分和通过率;
-  :更新 Submission 记录\n(status / score / time / memory);
-  :更新结束时间;
+  :更新 Submission 状态;
   :更新 Problem 提交数/通过数;
 end fork
+
 |用户端|
 :轮询或刷新查看判题结果;
 :展示状态及详细结果;
-stop
+#C8E6C9:stop
+
 @enduml
 ```
 
@@ -275,217 +319,192 @@ stop
 
 ```plantuml
 @startuml Judge-Class
+' ====== 美化设置 ======
 skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 70
+skinparam defaultFontSize 10
+skinparam packageStyle rectangle
 
-' === 实体类 (Domain) ===
-class Submission {
-  - Long id
-  - Long problemId
-  - Long userId
-  - Long languageId
-  - Long contestId
-  - String code
-  - Integer status
-  - Integer score
-  - Long maxTimeUsed
-  - Long maxMemoryUsed
-  - String errorMessage
-  - String compileMessage
-  - Integer passedCaseCount
-  - Integer totalCaseCount
-  - LocalDateTime createTime
-  - LocalDateTime finishTime
-  + getId(): Long
-  + getStatus(): Integer
+' ============ 领域实体层 ============
+package "Domain Entities (领域实体)" #E8F5E9 {
+
+  class Submission {
+    - Long id
+    - Long problemId
+    - Long userId
+    - Long languageId
+    - Long contestId
+    - String code
+    - Integer status
+    - Integer score
+    - Long maxTimeUsed
+    - Long maxMemoryUsed
+    - String errorMessage
+    - String compileMessage
+    - Integer passedCaseCount
+    - Integer totalCaseCount
+    - LocalDateTime createTime
+    - LocalDateTime finishTime
+  }
+
+  class SubmissionCaseResult {
+    - Long id
+    - Long submissionId
+    - Long testCaseId
+    - Integer caseOrder
+    - Integer status
+    - Long timeUsed
+    - Long memoryUsed
+  }
+
+  class SubmissionJudgeResult {
+    - Long id
+    - Long submissionId
+    - Integer status
+    - Integer score
+    - String compileOutput
+    - String judgeMessage
+  }
+
+  enum JudgeStatus {
+    PENDING(0) | JUDGING(1)
+    ACCEPTED(2) | COMPILE_ERROR(3)
+    SYSTEM_ERROR(4) | WRONG_ANSWER(5)
+    TIME_LIMIT_EXCEEDED(6) | MEMORY_LIMIT_EXCEEDED(7)
+    RUNTIME_ERROR(8) | OUTPUT_LIMIT_EXCEEDED(9)
+    PARTIAL_ACCEPTED(10)
+  }
+
+  Submission "1" -- "*" SubmissionCaseResult : 包含
+  Submission "1" -- "0..1" SubmissionJudgeResult : 汇总
+  Submission ..> JudgeStatus : 使用
 }
 
-class SubmissionCaseResult {
-  - Long id
-  - Long submissionId
-  - Long testCaseId
-  - Integer caseOrder
-  - Integer status
-  - Long timeUsed
-  - Long memoryUsed
-  - String actualOutput
-  - String errorMessage
+' ============ 沙箱通信模型 ============
+package "Go-Judge 沙箱模型" #FFF3E0 {
+  class GoJudgeRequest {
+    - List<Cmd> cmd
+    - Map pipeMapping
+  }
+  class GoJudgeResult {
+    - String status
+    - Integer exitStatus
+    - Long time
+    - Long memory
+    - Long runTime
+    - Map files
+    - Map fileIds
+    - String error
+  }
+  class Cmd {
+    - List<String> args
+    - Map env
+    - Map files
+    - Long cpuLimit
+    - Long memoryLimit
+    - Long stackLimit
+    - Integer procLimit
+  }
+  GoJudgeRequest "1" *-- "*" Cmd : 组合
 }
 
-class SubmissionJudgeResult {
-  - Long id
-  - Long submissionId
-  - Integer status
-  - Integer score
-  - String compileOutput
-  - String judgeMessage
+' ============ 服务层 ============
+package "Service Layer (服务层)" #BBDEFB {
+  class JudgeController {
+    + submitCode(SubmitCodeDTO, userId): ResponseResult~SubmissionVO~
+  }
+  class SubmissionService {
+    + submitCode(dto, userId): SubmissionVO
+    + getSubmissionById(id): SubmissionVO
+    + getSubmissionPage(...): PageVO
+  }
+  class JudgeExecutor <<@Async>> {
+    + executeJudgeAsync(...): void
+    - compileCode(code, lang): GoJudgeResult
+    - runTestCase(...): GoJudgeResult
+    - determineFinalStatus(...): JudgeStatus
+  }
+  class GoJudgeService {
+    + compile(code, langConfig): GoJudgeResult
+    + run(...): GoJudgeResult
+    + healthCheck(): Boolean
+  }
+  interface SubmissionMapper {
+    + insert(submission): int
+    + selectById(id): Submission
+    + updateById(submission): int
+  }
+
+  JudgeController -down-> SubmissionService : 调用
+  SubmissionService -down-> SubmissionMapper : 数据访问
+  SubmissionService -right-> JudgeExecutor : 异步触发
+  JudgeExecutor -down-> GoJudgeService : 沙箱调用
+  JudgeExecutor -right-> SubmissionMapper : 更新状态
 }
 
-class GoJudgeRequest {
-  - List<Cmd> cmd
-  - Map pipeMapping
+' ============ DTO 层 ============
+package "DTOs (数据传输对象)" #F3E5F5 {
+  class SubmitCodeDTO {
+    - Long problemId
+    - Long languageId
+    - String code
+    - Long contestId
+  }
+  class SubmissionVO {
+    - Long id
+    - Long problemId
+    - Long userId
+    - Integer status
+    - Integer score
+    - Long maxTimeUsed
+    - Long maxMemoryUsed
+  }
+  JudgeController ..> SubmitCodeDTO : 接收
+  JudgeController ..> SubmissionVO : 返回
 }
 
-class GoJudgeResult {
-  - String status
-  - Integer exitStatus
-  - Long time
-  - Long memory
-  - Long runTime
-  - Map files
-  - Map fileIds
-  - String error
+' ============ 跨服务接口 ============
+package "Cross-Service (跨服务Feign)" #FFCDD2 {
+  interface ProblemFeignClient {
+    + getProblemById(id): ResponseResult
+    + getTestCasesByProblemId(id): ResponseResult
+    + getLanguageById(id): ResponseResult
+  }
+  class ProblemVO <<external>> {
+    - Long id / String title
+    - Integer timeLimit / memoryLimit
+  }
+  class LanguageVO <<external>> {
+    - Long id / String name
+    - String compileCommand
+    - String runCommand
+    - Integer isCompiled
+  }
+  class TestCaseVO <<external>> {
+    - Long id
+    - String input / output
+    - Integer isSample / score
+  }
+
+  JudgeExecutor -down-> ProblemFeignClient : Feign调用
+  ProblemFeignClient ..> ProblemVO : 获取
+  ProblemFeignClient ..> LanguageVO : 获取
+  ProblemFeignClient ..> TestCaseVO : 获取
 }
 
-class Cmd {
-  - List<String> args
-  - Map env
-  - Map files
-  - Long cpuLimit
-  - Long realCpuLimit
-  - Long memoryLimit
-  - Long stackLimit
-  - Integer procLimit
-  - Boolean strictMemoryLimit
-  - String input
-  - String output
-}
-
-enum JudgeStatus {
-  PENDING = 0
-  JUDGING = 1
-  ACCEPTED = 2
-  COMPILE_ERROR = 3
-  SYSTEM_ERROR = 4
-  WRONG_ANSWER = 5
-  TIME_LIMIT_EXCEEDED = 6
-  MEMORY_LIMIT_EXCEEDED = 7
-  RUNTIME_ERROR = 8
-  OUTPUT_LIMIT_EXCEEDED = 9
-  PARTIAL_ACCEPTED = 10
-}
-
-' === DTO ===
-class SubmitCodeDTO {
-  - Long problemId
-  - Long languageId
-  - String code
-  - Long contestId
-}
-
-class SubmissionVO {
-  - Long id
-  - Long problemId
-  - Long userId
-  - Long languageId
-  - Integer status
-  - Integer passedCaseCount
-  - Integer totalCaseCount
-  - Integer score
-  - Long maxTimeUsed
-  - Long maxMemoryUsed
-  - String errorMessage
-  - String compileMessage
-  - LocalDateTime createTime
-  - LocalDateTime finishTime
-}
-
-' === Controller ===
-class JudgeController {
-  + submitCode(SubmitCodeDTO, userId): ResponseResult<SubmissionVO>
-}
-
-' === Service ===
-class SubmissionService {
-  + submitCode(SubmitCodeDTO, userId): SubmissionVO
-  + getSubmissionById(id): SubmissionVO
-  + getSubmissionPage(dto, problemId, userId): PageVO<SubmissionVO>
-  + getMySubmissions(dto, userId, problemId): PageVO<SubmissionVO>
-}
-
-class JudgeExecutor {
-  + executeJudgeAsync(submissionId, problemId, languageId, code): void
-  - compileCode(code, language): GoJudgeResult
-  - runTestCase(code, lang, testCase, tl, ml): GoJudgeResult
-  - determineFinalStatus(caseResults): JudgeStatus
-}
-
-class GoJudgeService {
-  + compile(code, languageConfig): GoJudgeResult
-  + run(languageConfig, fileIds, code, input, timeLimit, memoryLimit): GoJudgeResult
-  + healthCheck(): Boolean
-}
-
-' === Feign Client ===
-interface ProblemFeignClient {
-  + getProblemById(problemId): ResponseResult<ProblemVO>
-  + getTestCasesByProblemId(problemId): ResponseResult<List<TestCaseVO>>
-  + getLanguageById(languageId): ResponseResult<LanguageVO>
-  + getSubmissionCaseResult(submissionId): ResponseResult<List<TestCaseResultVO>>
-}
-
-' === 引用外部实体 (跨服务) ===
-class ProblemVO <<external>> {
-  - Long id
-  - String title
-  - Integer timeLimit
-  - Integer memoryLimit
-  - Integer stackLimit
-}
-
-class LanguageVO <<external>> {
-  - Long id
-  - String name
-  - String compileCommand
-  - String runCommand
-  - Integer isCompiled
-  - Double timeLimitMultiplier
-  - Double memoryLimitMultiplier
-}
-
-class TestCaseVO <<external>> {
-  - Long id
-  - String input
-  - String output
-  - Integer isSample
-  - Integer score
-}
-
-' === Mapper ===
-interface SubmissionMapper {
-  + insert(submission): int
-  + selectById(id): Submission
-  + selectPage(page, queryWrapper): Page<Submission>
-  + updateById(submission): int
-}
-
-' === 关系 ===
-JudgeController --> SubmissionService : 调用
-SubmissionService --> SubmissionMapper : 数据访问
-SubmissionService --> JudgeExecutor : 异步触发
-JudgeExecutor --> ProblemFeignClient : Feign调用
-JudgeExecutor --> GoJudgeService : 沙箱调用
-JudgeExecutor --> SubmissionMapper : 更新状态
-
-Submission "1" -- "*" SubmissionCaseResult : 包含
-Submission "1" -- "0..1" SubmissionJudgeResult : 汇总
-GoJudgeRequest "1" *-- "*" Cmd : 组合
+' === 跨包关系 ===
 GoJudgeService ..> GoJudgeRequest : 构造
 GoJudgeService ..> GoJudgeResult : 返回
-Submission ..> JudgeStatus : 使用
-JudgeController ..> SubmitCodeDTO : 接收
-JudgeController ..> SubmissionVO : 返回
-
-ProblemFeignClient ..> ProblemVO : 获取
-ProblemFeignClient ..> LanguageVO : 获取
-ProblemFeignClient ..> TestCaseVO : 获取
 
 note right of JudgeExecutor
-  @Async 异步执行
+  <b>@Async</b> 异步执行
   使用 @EnableAsync
 end note
 
 note bottom of GoJudgeService
-  HTTP 调用 Go-Judge 沙箱
+  <b>HTTP</b> 调用 Go-Judge 沙箱
   REST API: POST /api/judge
 end note
 
@@ -500,8 +519,10 @@ end note
 
 ```plantuml
 @startuml Judge-Sequence
-skinparam ParticipantPadding 20
-skinparam BoxPadding 10
+skinparam ParticipantPadding 25
+skinparam BoxPadding 12
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 
 actor "用户" as User
 participant "用户端\n(Frontend)" as FE
@@ -599,7 +620,10 @@ FE --> User: 展示状态、得分、\n通过用例、耗时、内存
 @startuml Judge-Communication
 skinparam rectangleBorderColor #1565C0
 skinparam rectangleBackgroundColor #E3F2FD
-skinparam defaultFontSize 12
+skinparam defaultFontSize 11
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 40
 
 rectangle "用户端\n(Frontend)" as FE
 rectangle "Gateway\n:8080" as GW
@@ -675,6 +699,9 @@ end note
 ```plantuml
 @startuml Judge-Component
 skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
 
 package "EmiyaOJ-Gateway" {
   [Gateway\nApplication] as GW
@@ -755,7 +782,10 @@ end note
 @startuml Judge-Deployment
 skinparam nodeBorderColor #333333
 skinparam nodeBackgroundColor #FAFAFA
-skinparam defaultFontSize 11
+skinparam defaultFontSize 10
+skinparam linetype ortho
+skinparam nodesep 20
+skinparam ranksep 30
 
 node "用户浏览器" as Browser {
   component "Vue/React\n前端应用" as WebApp
@@ -843,6 +873,13 @@ end note
 
 ```plantuml
 @startuml Auth-Activity
+' ====== 美化设置 ======
+skinparam defaultFontSize 11
+skinparam activityBorderColor #6A1B9A
+skinparam activityBackgroundColor #F3E5F5
+skinparam startColor #C8E6C9
+skinparam endColor #FFCDD2
+
 |用户|
 start
 :访问系统;
@@ -934,319 +971,241 @@ stop
 
 ```plantuml
 @startuml Auth-Class
+' ====== 美化设置 ======
 skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam defaultFontSize 10
+skinparam packageStyle rectangle
 
-' === 实体类 ===
-class User {
-  - Long id
-  - String username
-  - String password
-  - String nickname
-  - String email
-  - String phone
-  - String avatar
-  - Integer status
-  - Integer deleted
-  - LocalDateTime createTime
-  - LocalDateTime updateTime
-  - Long createBy
-  - Long updateBy
-  + getAuthorities(): Collection<GrantedAuthority>
+' ============ RBAC 领域实体 ============
+package "Domain: RBAC 实体" #E8F5E9 {
+  class User {
+    - Long id
+    - String username
+    - String password
+    - String nickname
+    - String email
+    - String avatar
+    - Integer status / deleted
+    - LocalDateTime createTime
+  }
+  class Role {
+    - Long id
+    - String roleCode
+    - String roleName
+    - String description
+    - Integer status
+  }
+  class Permission {
+    - Long id / parentId
+    - String permissionCode
+    - String permissionName
+    - Integer permissionType
+    - String path / component
+    - Integer sortOrder / status
+    - List~Permission~ children
+  }
+  class UserRole {
+    - Long id
+    - Long userId
+    - Long roleId
+  }
+  class RolePermission {
+    - Long roleId
+    - Long permissionId
+  }
+  class LoginUser {
+    - User user
+    - Collection~GrantedAuthority~ authorities
+    - List~String~ permissions
+    + getAuthorities()
+    + getPassword(): String
+    + getUsername(): String
+    + isEnabled(): boolean
+  }
+  enum PermissionTypeEnum {
+    MENU=1 | BUTTON=2 | API=3
+  }
+
+  User "1" -down- "*" UserRole : 拥有
+  Role "1" -down- "*" UserRole : 被分配
+  Role "1" -right- "*" RolePermission : 包含
+  Permission "1" -down- "*" RolePermission : 被授予
+  Permission "1" -right- "*" Permission : 父子递归
+  Permission ..> PermissionTypeEnum : 类型
 }
 
-class Role {
-  - Long id
-  - String roleCode
-  - String roleName
-  - String description
-  - Integer status
-  - Integer deleted
-  - LocalDateTime createTime
-  - LocalDateTime updateTime
+' ============ DTO 层 ============
+package "DTOs & VOs (传输对象)" #F3E5F5 {
+  class UserLoginDTO {
+    - String username
+    - String password
+  }
+  class UserLoginVO {
+    - Long id
+    - String username / nickname
+    - String token
+  }
+  class UserAuthDTO {
+    - Long userId
+    - String username
+    - List~String~ permissions
+  }
+  class UserSaveDTO {
+    - Long id / String username
+    - String nickname / email
+    - Integer status
+  }
+  class RoleSaveDTO {
+    - Long id / String roleCode
+    - String roleName / description
+    - Integer status
+  }
+  class PermissionSaveDTO {
+    - Long id / parentId
+    - String permissionCode
+    - Integer permissionType
+    - String path / sortOrder
+  }
 }
 
-class Permission {
-  - Long id
-  - Long parentId
-  - String permissionCode
-  - String permissionName
-  - Integer permissionType
-  - String path
-  - String component
-  - String icon
-  - Integer sortOrder
-  - Integer status
-  - List<Permission> children
+' ============ Controller 层 ============
+package "Controllers (控制器)" #BBDEFB {
+  class AuthController {
+    + login(UserLoginDTO): ResponseResult~UserLoginVO~
+    + logout(userId): ResponseResult
+    + parseToken(token): ResponseResult~UserAuthDTO~
+  }
+  class UserController {
+    + page(PageDTO): ResponseResult~PageVO~
+    + getById(id): ResponseResult~UserVO~
+    + save(UserSaveDTO): ResponseResult
+    + update(UserSaveDTO): ResponseResult
+    + delete(id) / resetPassword(id)
+    + assignRoles(id, roleIds)
+    + hasPermission(id, code)
+  }
+  class RoleController {
+    + page(RoleQueryDTO): ResponseResult
+    + list() / getById(id)
+    + save(RoleSaveDTO)
+    + update(RoleSaveDTO) / delete(id)
+    + assignPermissions(id, permIds)
+  }
+  class PermissionController {
+    + list(dto) / tree(dto)
+    + getById(id) / save(dto)
+    + update(dto) / delete(id)
+    + exists(code)
+  }
+
+  AuthController ..> UserLoginDTO : 接收
+  AuthController ..> UserLoginVO : 返回
+  UserController ..> UserSaveDTO
+  RoleController ..> RoleSaveDTO
+  PermissionController ..> PermissionSaveDTO
 }
 
-class UserRole {
-  - Long id
-  - Long userId
-  - Long roleId
-  - LocalDateTime createTime
-  - Long createBy
+' ============ Service 层 ============
+package "Services (业务逻辑)" #FFF3E0 {
+  class AuthService {
+    + login(dto): UserLoginVO
+    + logout(userId): void
+    + parseToken(token): UserAuthDTO
+  }
+  class UserServiceImpl {
+    + selectUserPage(dto): PageVO
+    + saveUser(dto) / deleteUser(id)
+    + resetPassword(id)
+    + assignRoles(id, roleIds)
+    + hasPermission(id, code): Boolean
+  }
+  class RoleServiceImpl {
+    + selectRolePage(dto): PageVO
+    + saveRole(dto) / deleteRole(id)
+    + assignPermissions(id, permIds)
+  }
+  class PermissionServiceImpl {
+    + selectPermissionTree(dto): List
+    + savePermission(dto)
+    + deletePermission(id)
+  }
+
+  AuthController -down-> AuthService : 调用
+  UserController -down-> UserServiceImpl : 调用
+  RoleController -down-> RoleServiceImpl : 调用
+  PermissionController -down-> PermissionServiceImpl : 调用
 }
 
-class RolePermission {
-  - Long roleId
-  - Long permissionId
-  - LocalDateTime createTime
+' ============ Mapper 层 ============
+package "Mappers (数据访问)" #E0E0E0 {
+  interface UserMapper
+  interface RoleMapper
+  interface PermissionMapper
+  interface UserRoleMapper
+  interface RolePermissionMapper
+
+  UserServiceImpl -down-> UserMapper
+  RoleServiceImpl -down-> RoleMapper
+  PermissionServiceImpl -down-> PermissionMapper
 }
 
-class LoginUser {
-  - User user
-  - Collection<GrantedAuthority> authorities
-  - List<String> permissions
-  + getAuthorities(): Collection<GrantedAuthority>
-  + getPassword(): String
-  + getUsername(): String
-  + isAccountNonLocked(): boolean
-  + isEnabled(): boolean
+' ============ Security & Gateway ============
+package "Security & Gateway (安全与网关)" #FFCDD2 {
+  class UserDetailsServiceImpl {
+    + loadUserByUsername(username): UserDetails
+  }
+  class SecurityConfig {
+    + authenticationManager()
+    + passwordEncoder()
+    + securityFilterChain(http)
+  }
+  class AuthGlobalFilter <<GlobalFilter>> {
+    - JwtUtil jwtUtil
+    - RedisUtil redisUtil
+    - GatewayWhitelistProperties whitelist
+    + filter(exchange, chain): Mono~Void~
+    - isWhitelistPath(path): Boolean
+    - extractToken(request): String
+    - injectUserHeaders(exchange, claims): void
+  }
+
+  AuthService -right-> UserDetailsServiceImpl : 认证
+  AuthService -right-> SecurityConfig : 配置
+  UserDetailsServiceImpl -down-> UserMapper : 查询用户
+  UserDetailsServiceImpl ..|> UserDetailsService : <<interface>>
+  LoginUser ..|> UserDetails : <<interface>>
+  LoginUser -up-> User : 包装
 }
 
-enum PermissionTypeEnum {
-  MENU = 1
-  BUTTON = 2
-  API = 3
+' ============ Common Utils ============
+package "Common Utils (公共工具)" #D1C4E9 {
+  class JwtUtil {
+    - String secretKey
+    - Long ttlMillis
+    + createJWT(claims): String
+    + parseJWT(token): Claims
+  }
+  class RedisUtil {
+    - StringRedisTemplate redisTemplate
+    + set(key, value) / get(key)
+    + delete(key) / exists(key)
+  }
+
+  AuthService -right-> JwtUtil : 生成Token
+  AuthService -right-> RedisUtil : 白名单管理
+  AuthGlobalFilter -right-> JwtUtil : 解析Token
+  AuthGlobalFilter -up-> RedisUtil : 验证白名单
 }
-
-' === DTO/VO ===
-class UserLoginDTO {
-  - String username
-  - String password
-}
-
-class UserLoginVO {
-  - Long id
-  - String username
-  - String nickname
-  - String token
-}
-
-class UserAuthDTO {
-  - Long userId
-  - String username
-  - List<String> permissions
-}
-
-class UserSaveDTO {
-  - Long id
-  - String username
-  - String password
-  - String nickname
-  - String email
-  - String phone
-  - Integer status
-}
-
-class RoleSaveDTO {
-  - Long id
-  - String roleCode
-  - String roleName
-  - String description
-  - Integer status
-}
-
-class PermissionSaveDTO {
-  - Long id
-  - Long parentId
-  - String permissionCode
-  - String permissionName
-  - Integer permissionType
-  - String path
-  - Integer sortOrder
-  - Integer status
-}
-
-' === Controller ===
-class AuthController {
-  + login(UserLoginDTO): ResponseResult<UserLoginVO>
-  + logout(userId): ResponseResult<?>
-  + parseToken(token): ResponseResult<UserAuthDTO>
-}
-
-class UserController {
-  + page(PageDTO): ResponseResult<PageVO<UserVO>>
-  + getById(id): ResponseResult<UserVO>
-  + save(UserSaveDTO): ResponseResult<Void>
-  + update(UserSaveDTO): ResponseResult<Void>
-  + delete(id): ResponseResult<Void>
-  + resetPassword(id): ResponseResult<Void>
-  + updateStatus(id, status): ResponseResult<Void>
-  + assignRoles(id, roleIds): ResponseResult<Void>
-  + hasPermission(id, code): ResponseResult<Boolean>
-  + hasRole(id, code): ResponseResult<Boolean>
-}
-
-class RoleController {
-  + page(RoleQueryDTO): ResponseResult<PageVO<RoleVO>>
-  + list(): ResponseResult<List<RoleVO>>
-  + getById(id): ResponseResult<RoleVO>
-  + save(RoleSaveDTO): ResponseResult<Void>
-  + update(RoleSaveDTO): ResponseResult<Void>
-  + delete(id): ResponseResult<Void>
-  + updateStatus(id, status): ResponseResult<Void>
-  + assignPermissions(id, permIds): ResponseResult<Void>
-  + exists(code): ResponseResult<Boolean>
-}
-
-class PermissionController {
-  + list(PermissionQueryDTO): ResponseResult<List<PermissionVO>>
-  + tree(PermissionQueryDTO): ResponseResult<List<PermissionVO>>
-  + getById(id): ResponseResult<PermissionVO>
-  + save(PermissionSaveDTO): ResponseResult<Void>
-  + update(PermissionSaveDTO): ResponseResult<Void>
-  + delete(id): ResponseResult<Void>
-  + updateStatus(id, status): ResponseResult<Void>
-  + exists(code): ResponseResult<Boolean>
-}
-
-' === Service ===
-class AuthService {
-  + login(UserLoginDTO): UserLoginVO
-  + logout(userId): void
-  + parseToken(token): UserAuthDTO
-}
-
-class UserServiceImpl {
-  + selectUserPage(PageDTO): PageVO<UserVO>
-  + selectUserById(id): UserVO
-  + saveUser(UserSaveDTO): void
-  + updateUser(UserSaveDTO): void
-  + deleteUser(id): void
-  + resetPassword(id): void
-  + updateUserStatus(id, status): void
-  + assignRoles(id, roleIds): void
-  + hasPermission(id, code): Boolean
-  + hasRole(id, code): Boolean
-}
-
-class RoleServiceImpl {
-  + selectRolePage(RoleQueryDTO): PageVO<RoleVO>
-  + selectAllRoles(): List<RoleVO>
-  + selectRoleById(id): RoleVO
-  + saveRole(RoleSaveDTO): void
-  + updateRole(RoleSaveDTO): void
-  + deleteRole(id): void
-  + updateRoleStatus(id, status): void
-  + assignPermissions(id, permIds): void
-  + existsRoleCode(code): Boolean
-}
-
-class PermissionServiceImpl {
-  + selectPermissionList(dto): List<PermissionVO>
-  + selectPermissionTree(dto): List<PermissionVO>
-  + selectPermissionById(id): PermissionVO
-  + savePermission(dto): void
-  + updatePermission(dto): void
-  + deletePermission(id): void
-  + updatePermissionStatus(id, status): void
-  + existsPermissionCode(code): Boolean
-}
-
-' === Spring Security ===
-class UserDetailsServiceImpl {
-  + loadUserByUsername(username): UserDetails
-}
-
-class SecurityConfig {
-  + authenticationManager(): AuthenticationManager
-  + passwordEncoder(): PasswordEncoder
-  + securityFilterChain(http): SecurityFilterChain
-}
-
-' === Gateway Filter ===
-class AuthGlobalFilter {
-  - JwtUtil jwtUtil
-  - RedisUtil redisUtil
-  - GatewayWhitelistProperties whitelist
-  + filter(exchange, chain): Mono<Void>
-  - isWhitelistPath(path): Boolean
-  - extractToken(request): String
-  - validateToken(token): Claims
-  - injectUserHeaders(exchange, claims): void
-}
-
-' === Common 工具 ===
-class JwtUtil {
-  - String secretKey
-  - Long ttlMillis
-  + createJWT(claims): String
-  + parseJWT(token): Claims
-  - getKey(): SecretKey
-}
-
-class RedisUtil {
-  - StringRedisTemplate redisTemplate
-  + set(key, value): void
-  + set(key, value, ttl): void
-  + get(key): String
-  + delete(key): void
-  + exists(key): Boolean
-}
-
-' === Mapper ===
-interface UserMapper
-interface RoleMapper
-interface PermissionMapper
-interface UserRoleMapper
-interface RolePermissionMapper
-
-' ====== 关系 ======
-
-' 实体关系
-User "1" -- "*" UserRole : 拥有
-Role "1" -- "*" UserRole : 被分配
-Role "1" -- "*" RolePermission : 包含
-Permission "1" -- "*" RolePermission : 被授予
-Permission "1" -- "*" Permission : 父子递归
-
-' Controller → Service
-AuthController --> AuthService : 调用
-UserController --> UserServiceImpl : 调用
-RoleController --> RoleServiceImpl : 调用
-PermissionController --> PermissionServiceImpl : 调用
-
-' Service → Mapper
-UserServiceImpl --> UserMapper : 数据访问
-RoleServiceImpl --> RoleMapper : 数据访问
-PermissionServiceImpl --> PermissionMapper : 数据访问
-
-' AuthService 依赖
-AuthService --> UserDetailsServiceImpl : 认证
-AuthService --> JwtUtil : 生成Token
-AuthService --> RedisUtil : 白名单管理
-
-' Security
-UserDetailsServiceImpl ..|> UserDetailsService <<interface>>
-UserDetailsServiceImpl --> UserMapper : 查询用户
-SecurityConfig --> UserDetailsServiceImpl : 配置
-LoginUser ..|> UserDetails <<interface>>
-LoginUser --> User : 包装
-
-' Gateway Filter
-AuthGlobalFilter --> JwtUtil : 解析Token
-AuthGlobalFilter --> RedisUtil : 验证白名单
-
-' DTO 使用
-AuthController ..> UserLoginDTO : 接收
-AuthController ..> UserLoginVO : 返回
-UserController ..> UserSaveDTO : 接收
-RoleController ..> RoleSaveDTO : 接收
-PermissionController ..> PermissionSaveDTO : 接收
-Permission ..> PermissionTypeEnum : 类型
 
 note right of AuthGlobalFilter
+  <b>Gateway 全局过滤器</b>
   implements GlobalFilter, Ordered
-  所有请求经过此过滤器
-  白名单路径直接放行
-  非白名单路径需Token校验
-end note
-
-note bottom of SecurityConfig
-  @Configuration
-  @EnableWebSecurity
-  Spring Security 6.x
+  • 白名单路径直接放行
+  • 非白名单路径需Token校验
+  • 认证通过后注入用户上下文
 end note
 
 @enduml
@@ -1262,7 +1221,10 @@ end note
 
 ```plantuml
 @startuml Auth-Login-Sequence
-skinparam ParticipantPadding 20
+skinparam ParticipantPadding 25
+skinparam BoxPadding 12
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 
 actor "用户" as User
 participant "用户端\n(Frontend)" as FE
@@ -1312,7 +1274,10 @@ FE --> User: 跳转到首页/个人中心
 
 ```plantuml
 @startuml Auth-Request-Sequence
-skinparam ParticipantPadding 20
+skinparam ParticipantPadding 25
+skinparam BoxPadding 12
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 
 actor "用户" as User
 participant "用户端\n(Frontend)" as FE
@@ -1374,7 +1339,10 @@ FE --> User: 展示结果
 @startuml Auth-Communication
 skinparam rectangleBorderColor #6A1B9A
 skinparam rectangleBackgroundColor #F3E5F5
-skinparam defaultFontSize 12
+skinparam defaultFontSize 11
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 40
 
 rectangle "用户端\n(Frontend)" as FE
 rectangle "Gateway\n:8080\nAuthGlobalFilter" as GW [
@@ -1455,6 +1423,9 @@ end note
 ```plantuml
 @startuml Auth-Component
 skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
 
 package "EmiyaOJ-Gateway :8080" {
   [Spring Cloud\nGateway] as SCG
@@ -1561,7 +1532,10 @@ end note
 @startuml Auth-Deployment
 skinparam nodeBorderColor #333333
 skinparam nodeBackgroundColor #FAFAFA
-skinparam defaultFontSize 11
+skinparam defaultFontSize 10
+skinparam linetype ortho
+skinparam nodesep 20
+skinparam ranksep 30
 
 node "用户浏览器" as Browser {
   component "Vue/React\n管理端前端" as AdminFE

@@ -1,0 +1,308 @@
+@startuml EmiyaOJ-Cloud-Login-Authentication-Sequence
+
+' ============================================================
+' EmiyaOJ-Cloud 登录认证流程 — 分析级时序图 (UML 2.* 规范)
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 200
+skinparam ParticipantPadding 30
+skinparam BoxPadding 20
+
+title **EmiyaOJ-Cloud 登录认证流程 — 分析级时序图**\n(UML 2.5 规范 · 微服务架构 · JWT + Redis 双因子校验)
+
+' ====== 参与者定义 ======
+
+actor "客户端\n(浏览器/前端)" as Client
+
+box "API 网关层 (Port 8080)" #LightSteelBlue
+    participant "AuthGlobalFilter\n(全局过滤器)" as GatewayFilter
+end box
+
+box "认证服务 Auth-Service (Port 9010)" #LightCyan
+    participant "AuthController\n(认证控制器)" as AuthCtrl
+    participant "AuthService\n(认证业务服务)" as AuthSvc
+    participant "AuthenticationManager\n(Spring Security)" as AuthMgr
+    participant "UserDetailsServiceImpl\n(用户详情服务)" as UserDetailsSvc
+    participant "JwtUtil\n(JWT 工具类)" as JwtUtil
+    participant "RedisUtil\n(Redis 工具类)" as RedisUtil
+    participant "JwtTokenFilter\n(OncePerRequestFilter)" as JwtFilter
+end box
+
+box "数据层" #LightYellow
+    database "MySQL\n(emiya_oj_auth)" as MySQL
+    database "Redis\n(Token 白名单)" as Redis
+end box
+
+box "下游微服务 (示例)" #LightGreen
+    participant "Problem-Service\n(题目服务)" as ProblemSvc
+end box
+
+' ============================================================
+' 第一部分：用户登录流程 (POST /auth/login)
+' ============================================================
+
+== 1. 用户登录流程 (POST /auth/login) ==
+
+Client -> GatewayFilter : POST /auth/login\n{ username, password }
+activate GatewayFilter
+
+GatewayFilter -> GatewayFilter : isWhitelisted("/auth/login") ?\n→ true，白名单路径直接放行
+note right of GatewayFilter : Order = -100\n优先级最高
+
+GatewayFilter -> AuthCtrl : 路由转发至 Auth-Service
+deactivate GatewayFilter
+activate AuthCtrl
+
+AuthCtrl -> AuthSvc : login(UserLoginDTO)
+activate AuthSvc
+
+' Step 1: 构建认证令牌
+AuthSvc -> AuthSvc : 构建 UsernamePasswordAuthenticationToken
+note right: 未认证状态
+
+' Step 2: 调用 Spring Security 认证
+AuthSvc -> AuthMgr : authenticate(authToken)
+activate AuthMgr
+
+AuthMgr -> UserDetailsSvc : loadUserByUsername("admin")
+activate UserDetailsSvc
+
+UserDetailsSvc -> MySQL : SELECT * FROM user\nWHERE username='admin' AND deleted=0
+activate MySQL
+MySQL --> UserDetailsSvc : User { id, username, password(BCrypt), status, ... }
+deactivate MySQL
+
+alt 用户不存在
+    UserDetailsSvc --> AuthMgr : throw UsernameNotFoundException
+    AuthMgr --> AuthSvc : 认证失败
+    AuthSvc --> AuthCtrl : 抛出异常
+    AuthCtrl --> Client : 401 用户名或密码错误
+else 用户存在
+    UserDetailsSvc -> MySQL : SELECT p.permission_code\nFROM permission p\nJOIN role_permission rp ...\nJOIN user_role ur ...\nWHERE ur.user_id = userId
+    activate MySQL
+    MySQL --> UserDetailsSvc : List<permissionCode>
+    deactivate MySQL
+
+    UserDetailsSvc -> UserDetailsSvc : 构建 LoginUser(user, permissions)\nimplements UserDetails
+    UserDetailsSvc --> AuthMgr : LoginUser
+    deactivate UserDetailsSvc
+
+    ' Step 3: 密码校验
+    AuthMgr -> AuthMgr : PasswordEncoder.matches(rawPassword, encodedPassword)
+    note right: BCryptPasswordEncoder\n比对明文与密文
+
+    alt 密码错误
+        AuthMgr --> AuthSvc : throw BadCredentialsException
+        AuthSvc --> AuthCtrl : 认证失败
+        AuthCtrl --> Client : 401 用户名或密码错误
+    else 密码正确
+        AuthMgr -> AuthMgr : 检查 isEnabled()\n→ user.status == 1 ?
+
+        alt 账号被禁用 (status = 0)
+            AuthMgr --> AuthSvc : throw DisabledException
+            AuthSvc --> AuthCtrl : 账号已被禁用
+            AuthCtrl --> Client : 403 账号已被禁用
+        else 账号正常
+            AuthMgr --> AuthSvc : Authentication(已认证)\nprincipal = LoginUser
+            deactivate AuthMgr
+
+            ' Step 4: 构建 JWT Claims
+            AuthSvc -> AuthSvc : 提取 userId, username, permissions\n构建 Claims Map
+
+            ' Step 5: 生成 JWT Token
+            AuthSvc -> JwtUtil : createJWT(secretKey, ttl=7200000ms, claims)
+            activate JwtUtil
+            JwtUtil -> JwtUtil : Jwts.builder()\n.setClaims(claims)\n.signWith(secretKey, HMAC-SHA256)\n.compact()
+            JwtUtil --> AuthSvc : token = "eyJhbGciOiJIUzI1NiJ9..."
+            deactivate JwtUtil
+
+            ' Step 6: Token 存入 Redis 白名单
+            AuthSvc -> RedisUtil : set("token_" + userId, token, ttl=7200000ms)
+            activate RedisUtil
+            RedisUtil -> Redis : SET token_1 "eyJhbGc..." EX 7200
+            activate Redis
+            Redis --> RedisUtil : OK
+            deactivate Redis
+            RedisUtil --> AuthSvc : 写入成功
+            deactivate RedisUtil
+
+            ' Step 7: 构建响应
+            AuthSvc -> AuthSvc : 构建 UserLoginVO\n{ id, username, nickname, token }
+            AuthSvc --> AuthCtrl : UserLoginVO
+            deactivate AuthSvc
+
+            AuthCtrl --> Client : ResponseResult(200, UserLoginVO)\n{ "code": 200, "data": { "token": "eyJ..." } }
+            deactivate AuthCtrl
+        end
+    end
+end
+
+' ============================================================
+' 第二部分：认证请求流转 (携带 Token 访问业务接口)
+' ============================================================
+
+== 2. 认证请求流转 (GET /problem/1 · 携带 Bearer Token) ==
+
+Client -> GatewayFilter : GET /problem/1\nAuthorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+activate GatewayFilter
+
+GatewayFilter -> GatewayFilter : isWhitelisted("/problem/1") ?\n→ false，需要认证
+
+' 提取 Token
+GatewayFilter -> GatewayFilter : extractToken(request)\n去除 "Bearer " 前缀
+
+alt 缺少 Authorization 头
+    GatewayFilter --> Client : 401 缺少认证Token
+else Token 存在
+    ' 在网关层直接解析 JWT
+    GatewayFilter -> GatewayFilter : Jwts.parser()\n.verifyWith(secretKey)\n.parseSignedClaims(token)\n→ Claims
+
+    alt JWT 签名无效或过期
+        GatewayFilter --> Client : 401 Token 无效或已过期
+    else JWT 解析成功
+        GatewayFilter -> GatewayFilter : 提取 Claims:\nuserId, username, permissions
+
+        ' 验证 Redis 白名单
+        GatewayFilter -> Redis : EXISTS token_1
+        activate Redis
+
+        alt Token 不在白名单 (已登出)
+            Redis --> GatewayFilter : false
+            deactivate Redis
+            GatewayFilter --> Client : 401 Token 已过期或已注销
+        else Token 在白名单中
+            Redis --> GatewayFilter : true
+            deactivate Redis
+
+            ' 刷新 Redis 有效期
+            GatewayFilter -> Redis : EXPIRE token_1 7200
+            activate Redis
+            Redis --> GatewayFilter : OK
+            deactivate Redis
+
+            ' 将用户信息注入请求头
+            GatewayFilter -> GatewayFilter : 构建增强请求头:\nX-User-Id: 1\nX-User-Name: admin\nX-User-Roles: user:create,...
+
+            GatewayFilter -> ProblemSvc : 路由转发\nHeaders: X-User-Id, X-User-Name, X-User-Roles
+            deactivate GatewayFilter
+            activate ProblemSvc
+
+            ProblemSvc -> ProblemSvc : JwtTokenFilter 解析 X-User-Id\nBaseContext.setCurrentId(userId)\n构建 SecurityContext
+            note right: 微服务内部\n通过 ThreadLocal 传递用户上下文
+
+            ProblemSvc -> ProblemSvc : 执行业务逻辑\n(权限校验 + 数据查询)
+            ProblemSvc --> Client : ResponseResult(200, data)
+            deactivate ProblemSvc
+        end
+    end
+end
+
+' ============================================================
+' 第三部分：用户登出流程 (POST /auth/logout)
+' ============================================================
+
+== 3. 用户登出流程 (POST /auth/logout) ==
+
+Client -> GatewayFilter : POST /auth/logout\nX-User-Id: 1 (或携带 Bearer Token)
+activate GatewayFilter
+
+GatewayFilter -> GatewayFilter : 提取 userId\n(从 X-User-Id 头或解析 JWT)
+
+GatewayFilter -> AuthCtrl : 路由转发\nHeaders: X-User-Id: 1
+deactivate GatewayFilter
+activate AuthCtrl
+
+AuthCtrl -> AuthSvc : logout(userId)
+activate AuthSvc
+
+AuthSvc -> RedisUtil : delete("token_" + userId)
+activate RedisUtil
+RedisUtil -> Redis : DEL token_1
+activate Redis
+Redis --> RedisUtil : OK (1 key deleted)
+deactivate Redis
+RedisUtil --> AuthSvc : 删除成功
+deactivate RedisUtil
+
+note right of AuthSvc : Token 从白名单移除\n后续携带此 Token 的请求\n将在网关层被拒绝
+
+AuthSvc --> AuthCtrl : void
+deactivate AuthSvc
+
+AuthCtrl --> Client : ResponseResult(200, "登出成功")
+deactivate AuthCtrl
+
+' ============================================================
+' 第四部分：Feign 远程 Token 解析 (微服务间调用)
+' ============================================================
+
+== 4. Feign 远程 Token 解析 (微服务间调用 · 备用通路) ==
+
+ProblemSvc -> AuthCtrl : GET /auth/user/parse-token?token=eyJhbGc...
+activate AuthCtrl
+note right of ProblemSvc : 当微服务未通过网关\n直接接收请求时\n通过 Feign 调用 Auth 服务验证
+
+AuthCtrl -> AuthSvc : parseToken(token)
+activate AuthSvc
+
+' 解析 JWT
+AuthSvc -> JwtUtil : parseJWT(secretKey, token)
+activate JwtUtil
+JwtUtil -> JwtUtil : Jwts.parser()\n.verifyWith(secretKey)\n.parseSignedClaims(token)\n.getPayload()
+JwtUtil --> AuthSvc : Claims { userId, username, permissions }
+deactivate JwtUtil
+
+' 验证 Redis 白名单
+AuthSvc -> RedisUtil : hasKey("token_" + userId)
+activate RedisUtil
+RedisUtil -> Redis : EXISTS token_1
+activate Redis
+Redis --> RedisUtil : true
+deactivate Redis
+RedisUtil --> AuthSvc : true (Token 有效)
+deactivate RedisUtil
+
+' 刷新有效期
+AuthSvc -> RedisUtil : expire("token_" + userId, ttl)
+activate RedisUtil
+RedisUtil -> Redis : EXPIRE token_1 7200
+activate Redis
+Redis --> RedisUtil : OK
+deactivate Redis
+RedisUtil --> AuthSvc : 刷新成功
+deactivate RedisUtil
+
+AuthSvc --> AuthCtrl : UserAuthDTO\n{ userId, username, permissions }
+deactivate AuthSvc
+
+AuthCtrl --> ProblemSvc : ResponseResult(200, UserAuthDTO)
+deactivate AuthCtrl
+
+' ============================================================
+' 注释说明
+' ============================================================
+
+note over Client, Redis
+  **UML 2.5 时序图规范要点**
+  ————————
+  ◇ **同步消息**：实心三角箭头 (→)，表示调用者等待返回
+  ◇ **返回消息**：虚线箭头 (-->)，表示返回值
+  ◇ **激活条** (activation bar)：表示对象在交互期间处于激活状态
+  ◇ **alt/else** 组合片段：表示条件分支逻辑
+  ◇ **note** 注释：补充关键实现细节
+
+  **系统关键设计决策**
+  ——————————
+  · 网关层直接解析 JWT，避免每次请求都 Feign 调用 Auth 服务
+  · Redis Token 白名单实现即时登出（无状态 JWT 的增强方案）
+  · 用户密码采用 BCryptPasswordEncoder 加密存储
+  · 会话策略为 STATELESS，禁用 JSESSIONID
+  · 网关向下游微服务注入 X-User-Id / X-User-Name / X-User-Roles 头
+end note
+
+@enduml

@@ -150,19 +150,39 @@ EmiyaOJ-Cloud 的总体目标是提供一个面向高校软件工程实训和在
 
 系统核心业务流程如下：
 
-```mermaid
-flowchart LR
-    A[管理端登录] --> B[配置题目/测试用例/语言]
-    B --> C[发布题目或竞赛]
-    D[用户端登录] --> E[浏览题目]
-    E --> F[选择语言并提交代码]
-    F --> G[后端创建提交记录]
-    G --> H[Go-Judge 沙箱编译运行]
-    H --> I[生成判题结果]
-    I --> J[用户查看提交详情]
-    E --> K[发布题解或博客]
-    K --> L[异步文本审核]
-    L --> M[公开展示或人工复核]
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+title EmiyaOJ-Cloud 系统总体业务流程 — 活动图 (UML 2.5)
+
+|管理端|
+start
+:管理员登录;
+:配置题目/测试用例/语言;
+:发布题目或竞赛;
+end
+
+|用户端|
+:用户端登录;
+:浏览题目;
+fork
+  :选择语言并提交代码;
+  :后端创建提交记录;
+  :Go-Judge 沙箱编译运行;
+  :生成判题结果;
+  :用户查看提交详情;
+fork again
+  :发布题解或博客;
+  :异步文本审核;
+  if (审核通过?) then (是)
+    :公开展示;
+  else (否)
+    :人工复核;
+  endif
+end fork
+
+stop
+@enduml
 ```
 
 ---

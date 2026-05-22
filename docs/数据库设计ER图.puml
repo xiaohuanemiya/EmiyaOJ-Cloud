@@ -1,0 +1,810 @@
+@startuml EmiyaOJ-ER-Auth
+
+' ============================================================
+' EmiyaOJ-Cloud 数据库 ER 图 — emiya_oj_auth (认证授权库)
+' PlantUML IE (Information Engineering) 表示法
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 11
+
+title **EmiyaOJ-Cloud — 数据库 ER 图: emiya_oj_auth (认证授权库)**
+
+' ============================================================
+' 用户表
+' ============================================================
+entity "user" as user {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **username** : VARCHAR(50) <<UK>>
+    * **password** : VARCHAR(100)
+    nickname : VARCHAR(50)
+    email : VARCHAR(100) <<UK>>
+    phone : VARCHAR(20)
+    avatar : VARCHAR(255)
+    status : TINYINT <<0禁用,1启用>>
+    deleted : TINYINT <<逻辑删除>>
+    create_time : DATETIME
+    update_time : DATETIME
+    create_by : BIGINT <<FK→user.id>>
+    update_by : BIGINT
+}
+
+' ============================================================
+' 角色表
+' ============================================================
+entity "role" as role {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **role_code** : VARCHAR(50) <<UK>>
+    * **role_name** : VARCHAR(50)
+    description : VARCHAR(255)
+    status : TINYINT
+    deleted : TINYINT
+    create_time : DATETIME
+    update_time : DATETIME
+    create_by : BIGINT <<FK→user.id>>
+    update_by : BIGINT
+}
+
+' ============================================================
+' 权限表 (树形结构)
+' ============================================================
+entity "permission" as permission {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    parent_id : BIGINT <<FK→permission.id, 树形>>
+    * **permission_code** : VARCHAR(255) <<UK>>
+    * **permission_name** : VARCHAR(50)
+    * **permission_type** : TINYINT <<1菜单,2按钮,3接口>>
+    path : VARCHAR(255)
+    component : VARCHAR(255)
+    icon : VARCHAR(50)
+    sort_order : INT
+    status : TINYINT
+    deleted : TINYINT
+    create_time : DATETIME
+    update_time : DATETIME
+    create_by : BIGINT <<FK→user.id>>
+    update_by : BIGINT
+}
+
+' ============================================================
+' 用户角色关联表
+' ============================================================
+entity "user_role" as user_role {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **user_id** : BIGINT <<FK→user.id>>
+    * **role_id** : BIGINT <<FK→role.id>>
+    create_time : DATETIME
+    create_by : BIGINT
+    --
+    <<UK (user_id, role_id)>>
+}
+
+' ============================================================
+' 角色权限关联表
+' ============================================================
+entity "role_permission" as role_permission {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **role_id** : BIGINT <<FK→role.id>>
+    * **permission_id** : BIGINT <<FK→permission.id>>
+    create_time : DATETIME
+    create_by : BIGINT
+    --
+    <<UK (role_id, permission_id)>>
+    <<FK CASCADE>>
+}
+
+' ============================================================
+' 操作日志表
+' ============================================================
+entity "operation_log" as operation_log {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    title : VARCHAR(50)
+    business_type : TINYINT
+    method : VARCHAR(100)
+    request_method : VARCHAR(10)
+    operator_type : TINYINT
+    oper_name : VARCHAR(50)
+    oper_url : VARCHAR(255)
+    oper_ip : VARCHAR(50)
+    oper_location : VARCHAR(255)
+    oper_param : TEXT
+    json_result : TEXT
+    status : TINYINT
+    error_msg : VARCHAR(2000)
+    oper_time : DATETIME
+}
+
+' ============================================================
+' 关系定义
+' ============================================================
+
+' 自引用: 权限树形结构
+permission ||--o{ permission : "parent_id"
+
+' User ↔ UserRole ↔ Role (多对多)
+user ||--o{ user_role : "1:N"
+user_role }o--|| role : "N:1"
+
+' Role ↔ RolePermission ↔ Permission (多对多)
+role ||--o{ role_permission : "1:N"
+role_permission }o--|| permission : "N:1"
+
+' 审计字段 (逻辑关系)
+user ||--o{ user : "create_by / update_by"
+
+@enduml
+
+' ================================================================
+
+@startuml EmiyaOJ-ER-Problem
+
+' ============================================================
+' EmiyaOJ-Cloud 数据库 ER 图 — emiya_oj_problem (题目竞赛库)
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 11
+
+title **EmiyaOJ-Cloud — 数据库 ER 图: emiya_oj_problem (题目竞赛库)**
+
+' ============================================================
+' 题目表
+' ============================================================
+entity "problem" as problem {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **title** : VARCHAR(255)
+    * **description** : TEXT
+    input_description : TEXT
+    output_description : TEXT
+    sample_input : TEXT
+    sample_output : TEXT
+    hint : TEXT
+    difficulty : TINYINT <<1简单,2中等,3困难>>
+    * **time_limit** : INT <<ms>>
+    * **memory_limit** : INT <<MB>>
+    stack_limit : INT <<MB>>
+    source : VARCHAR(255)
+    author_id : BIGINT <<FK→user.id>>
+    accept_count : INT
+    submit_count : INT
+    status : TINYINT <<0隐藏,1公开>>
+    deleted : TINYINT
+    create_time : DATETIME
+    update_time : DATETIME
+    create_by : BIGINT
+    update_by : BIGINT
+}
+
+' ============================================================
+' 测试用例表
+' ============================================================
+entity "test_case" as test_case {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **problem_id** : BIGINT <<FK→problem.id>>
+    * **input** : TEXT
+    * **output** : TEXT
+    is_sample : TINYINT <<0否,1是>>
+    score : INT
+    sort_order : INT
+    deleted : TINYINT
+    create_time : DATETIME
+    update_time : DATETIME
+}
+
+' ============================================================
+' 编程语言配置表
+' ============================================================
+entity "language" as language {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **name** : VARCHAR(50)
+    * **version** : VARCHAR(50)
+    * **language_version** : VARCHAR(50)
+    * **compile_file_name** : VARCHAR(100)
+    * **source_file_ext** : VARCHAR(20)
+    * **executable_file_name** : VARCHAR(100)
+    compiled_file_names : VARCHAR(255)
+    compile_command : TEXT
+    * **run_command** : TEXT
+    env_vars : TEXT
+    is_compiled : TINYINT <<0否,1是>>
+    time_limit_multiplier : DECIMAL(5,2)
+    memory_limit_multiplier : DECIMAL(5,2)
+    compile_time_limit : INT <<ms>>
+    compile_memory_limit : INT <<MB>>
+    compile_proc_limit : INT
+    run_proc_limit : INT
+    status : TINYINT <<0禁用,1启用>>
+    create_time : DATETIME
+    update_time : DATETIME
+    --
+    <<UK (name, version)>>
+}
+
+' ============================================================
+' 标签表
+' ============================================================
+entity "tag" as tag {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **name** : VARCHAR(50) <<UK>>
+    description : VARCHAR(255)
+    color : VARCHAR(20) <<默认#409EFF>>
+    create_time : DATETIME
+    update_time : DATETIME
+}
+
+' ============================================================
+' 题目标签关联表
+' ============================================================
+entity "problem_tag" as problem_tag {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **problem_id** : BIGINT <<FK→problem.id>>
+    * **tag_id** : BIGINT <<FK→tag.id>>
+    create_time : DATETIME
+    --
+    <<UK (problem_id, tag_id)>>
+}
+
+' ============================================================
+' 竞赛表
+' ============================================================
+entity "contest" as contest {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **title** : VARCHAR(255)
+    description : TEXT
+    * **rule_type** : TINYINT <<1ACM,2IOI,3CF>>
+    * **start_time** : DATETIME
+    * **end_time** : DATETIME
+    freeze_before_minutes : INT <<封榜>>
+    * **invite_code** : VARCHAR(10) <<UK>>
+    status : TINYINT <<0草稿,1发布,2取消>>
+    * **creator_id** : BIGINT <<FK→user.id>>
+    deleted : TINYINT
+    create_time : DATETIME
+    update_time : DATETIME
+    create_by : BIGINT
+    update_by : BIGINT
+}
+
+' ============================================================
+' 竞赛题目关联表
+' ============================================================
+entity "contest_problem" as contest_problem {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **contest_id** : BIGINT <<FK→contest.id>>
+    * **problem_id** : BIGINT <<FK→problem.id>>
+    * **label** : VARCHAR(20)
+    sort_order : INT
+    score : INT <<默认100>>
+    create_time : DATETIME
+    --
+    <<UK (contest_id, problem_id)>>
+    <<UK (contest_id, label)>>
+}
+
+' ============================================================
+' 竞赛报名表
+' ============================================================
+entity "contest_registration" as contest_registration {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **contest_id** : BIGINT <<FK→contest.id>>
+    * **user_id** : BIGINT <<FK→user.id>>
+    create_time : DATETIME
+    --
+    <<UK (contest_id, user_id)>>
+}
+
+' ============================================================
+' 竞赛管理员表
+' ============================================================
+entity "contest_admin" as contest_admin {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **contest_id** : BIGINT <<FK→contest.id>>
+    * **user_id** : BIGINT <<FK→user.id>>
+    create_time : DATETIME
+    create_by : BIGINT
+    --
+    <<UK (contest_id, user_id)>>
+}
+
+' ============================================================
+' 题单表
+' ============================================================
+entity "problem_set" as problem_set {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **title** : VARCHAR(255)
+    description : TEXT
+    * **creator_id** : BIGINT <<FK→user.id>>
+    status : TINYINT <<0隐藏,1公开>>
+    deleted : TINYINT
+    create_time : DATETIME
+    update_time : DATETIME
+    create_by : BIGINT
+    update_by : BIGINT
+}
+
+' ============================================================
+' 题单题目关联表
+' ============================================================
+entity "problem_set_problem" as problem_set_problem {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **set_id** : BIGINT <<FK→problem_set.id>>
+    * **problem_id** : BIGINT <<FK→problem.id>>
+    sort_order : INT
+    note : VARCHAR(255)
+    create_time : DATETIME
+    --
+    <<UK (set_id, problem_id)>>
+}
+
+' ============================================================
+' 关系定义
+' ============================================================
+
+' Problem ↔ TestCase
+problem ||--o{ test_case : "1:N"
+
+' Problem ↔ Tag (多对多)
+problem ||--o{ problem_tag : "1:N"
+problem_tag }o--|| tag : "N:1"
+
+' Contest ↔ Problem (多对多)
+contest ||--o{ contest_problem : "1:N"
+contest_problem }o--|| problem : "N:1"
+
+' Contest ↔ User (报名)
+contest ||--o{ contest_registration : "1:N"
+
+' Contest ↔ User (管理员)
+contest ||--o{ contest_admin : "1:N"
+
+' ProblemSet ↔ Problem (多对多)
+problem_set ||--o{ problem_set_problem : "1:N"
+problem_set_problem }o--|| problem : "N:1"
+
+' Language 独立实体 (被 Judge 服务通过 Feign 引用)
+' problem 与 language 无直接外键，但 submission 引用 language_id
+
+@enduml
+
+' ================================================================
+
+@startuml EmiyaOJ-ER-Judge
+
+' ============================================================
+' EmiyaOJ-Cloud 数据库 ER 图 — emiya_oj_judge (判题库)
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 11
+
+title **EmiyaOJ-Cloud — 数据库 ER 图: emiya_oj_judge (判题库)**
+
+' ============================================================
+' 提交记录表
+' ============================================================
+entity "submission" as submission {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **problem_id** : BIGINT <<FK→problem.id>>
+    contest_id : BIGINT <<FK→contest.id>>
+    contest_problem_id : BIGINT <<FK→contest_problem.id>>
+    * **user_id** : BIGINT <<FK→user.id>>
+    * **language_id** : BIGINT <<FK→language.id>>
+    * **code** : LONGTEXT
+    deleted : TINYINT
+    create_time : DATETIME
+    update_time : DATETIME
+}
+
+' ============================================================
+' 提交判题汇总结果表
+' ============================================================
+entity "submission_judge_result" as submission_judge_result {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **submission_id** : BIGINT <<FK, UK>>
+    * **status** : INT <<0~10>>
+    * **passed_case_count** : INT
+    * **total_case_count** : INT
+    score : INT <<0~100>>
+    max_time_used : BIGINT <<ms>>
+    max_memory_used : BIGINT <<KB>>
+    error_message : TEXT
+    compile_message : TEXT
+    finish_time : DATETIME
+    create_time : DATETIME
+    update_time : DATETIME
+}
+
+' ============================================================
+' 测试用例判题明细结果表
+' ============================================================
+entity "submission_case_result" as submission_case_result {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **submission_id** : BIGINT <<FK→submission.id>>
+    * **test_case_id** : BIGINT <<FK→test_case.id>>
+    case_order : INT
+    * **status** : INT <<2AC,4SE,5WA,6TLE,7MLE,8RE,9OLE>>
+    score : INT
+    time_used : BIGINT <<ms>>
+    memory_used : BIGINT <<KB>>
+    error_message : TEXT
+    create_time : DATETIME
+}
+
+' ============================================================
+' 本地消息表 (分布式事务)
+' ============================================================
+entity "message_event" as message_event {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **business_type** : VARCHAR(50)
+    * **business_id** : VARCHAR(100)
+    * **status** : TINYINT <<0待处理,1处理中,2成功,3失败>>
+    retry_count : INT
+    max_retry_count : INT
+    payload : TEXT
+    next_retry_time : DATETIME
+    create_time : DATETIME
+    update_time : DATETIME
+}
+
+' ============================================================
+' 关系定义
+' ============================================================
+
+' Submission ↔ SubmissionJudgeResult (1:1)
+submission ||--|| submission_judge_result : "1:1\nsubmission_id UK"
+
+' Submission ↔ SubmissionCaseResult (1:N)
+submission ||--o{ submission_case_result : "1:N\nsubmission_id"
+
+' ============================================================
+' 跨库引用说明 (逻辑外键)
+' ============================================================
+note bottom of submission
+  **跨库逻辑外键**
+  ─────────────────
+  · problem_id → emiya_oj_problem.problem.id
+  · contest_id → emiya_oj_problem.contest.id
+  · contest_problem_id → emiya_oj_problem.contest_problem.id
+  · user_id → emiya_oj_auth.user.id
+  · language_id → emiya_oj_problem.language.id
+  
+  **判题状态码**
+  ────────────
+  0-Pending  1-Judging  2-AC
+  3-CE  4-SE  5-WA  6-TLE
+  7-MLE  8-RE  9-OLE  10-PA
+end note
+
+note bottom of submission_case_result
+  **跨库逻辑外键**
+  test_case_id → emiya_oj_problem.test_case.id
+end note
+
+@enduml
+
+' ================================================================
+
+@startuml EmiyaOJ-ER-Blog
+
+' ============================================================
+' EmiyaOJ-Cloud 数据库 ER 图 — emiya_oj_blog (博客库)
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 11
+
+title **EmiyaOJ-Cloud — 数据库 ER 图: emiya_oj_blog (博客社区库)**
+
+' ============================================================
+' 博客表
+' ============================================================
+entity "blog" as blog {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **user_id** : BIGINT <<FK→user.id>>
+    * **title** : VARCHAR(255)
+    * **content** : TEXT
+    * **blog_type** : TINYINT <<0普通,1题解>>
+    problem_id : BIGINT <<FK→problem.id, 题解关联>>
+    view_count : INT
+    like_count : INT
+    audit_status : TINYINT <<0待审,1通过,2拒绝,3人工>>
+    audit_task_id : VARCHAR(64)
+    audit_reason : VARCHAR(1000)
+    audit_labels : VARCHAR(512)
+    audit_time : DATETIME
+    create_time : DATETIME
+    update_time : DATETIME
+    deleted : TINYINT
+    --
+    <<UK (user_id, problem_id, blog_type, deleted)>>
+}
+
+' ============================================================
+' 评论表
+' ============================================================
+entity "blog_comment" as blog_comment {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **blog_id** : BIGINT <<FK→blog.id>>
+    * **user_id** : BIGINT <<FK→user.id>>
+    * **content** : TEXT
+    audit_status : TINYINT <<0待审,1通过,2拒绝,3人工>>
+    audit_task_id : VARCHAR(64)
+    audit_reason : VARCHAR(1000)
+    audit_labels : VARCHAR(512)
+    audit_time : DATETIME
+    create_time : DATETIME
+    update_time : DATETIME
+    deleted : TINYINT
+}
+
+' ============================================================
+' 点赞表
+' ============================================================
+entity "blog_like" as blog_like {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **user_id** : BIGINT <<FK→user.id>>
+    * **blog_id** : BIGINT <<FK→blog.id>>
+    create_time : DATETIME
+    deleted : TINYINT
+    --
+    <<UK (user_id, blog_id)>>
+}
+
+' ============================================================
+' 收藏表
+' ============================================================
+entity "blog_star" as blog_star {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **user_id** : BIGINT <<FK→user.id>>
+    * **blog_id** : BIGINT <<FK→blog.id>>
+    create_time : DATETIME
+    deleted : TINYINT
+    --
+    <<UK (user_id, blog_id)>>
+    <<TRIGGER: after_blog_star_insert/delete → 更新user_blog.star_count>>
+}
+
+' ============================================================
+' 博客标签表
+' ============================================================
+entity "blog_tag" as blog_tag {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **tag** : VARCHAR(255)
+    * **desc** : VARCHAR(255)
+}
+
+' ============================================================
+' 博客标签关联表
+' ============================================================
+entity "blog_tag_association" as blog_tag_association {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **blog_id** : BIGINT <<FK→blog.id>>
+    * **tag_id** : BIGINT <<FK→blog_tag.id>>
+}
+
+' ============================================================
+' 图片表 (MinIO 存储)
+' ============================================================
+entity "blog_picture" as blog_picture {
+    * **id** : BIGINT <<PK, AUTO>>
+    --
+    * **user_id** : BIGINT <<FK→user.id>>
+    blog_id : BIGINT <<FK→blog.id>>
+    * **object_name** : VARCHAR(512) <<UK>>
+    * **url** : VARCHAR(1024)
+    * **content_type** : VARCHAR(100)
+    * **size** : BIGINT
+    original_filename : VARCHAR(255)
+    create_time : DATETIME
+    deleted : TINYINT
+}
+
+' ============================================================
+' 用户博客统计表 (触发器维护)
+' ============================================================
+entity "user_blog" as user_blog {
+    * **user_id** : BIGINT <<PK, FK→user.id>>
+    --
+    username : VARCHAR(50)
+    nickname : VARCHAR(50)
+    blog_count : INT
+    star_count : INT
+    create_time : DATETIME
+    --
+    <<TRIGGER维护>>
+    <<after_blog_insert/delete → blog_count>>
+    <<after_blog_star_insert/delete → star_count>>
+}
+
+' ============================================================
+' 关系定义
+' ============================================================
+
+' Blog ↔ Comment
+blog ||--o{ blog_comment : "1:N"
+
+' Blog ↔ Like (多对多)
+blog ||--o{ blog_like : "1:N"
+
+' Blog ↔ Star (多对多)
+blog ||--o{ blog_star : "1:N"
+
+' Blog ↔ Tag (多对多)
+blog ||--o{ blog_tag_association : "1:N"
+blog_tag_association }o--|| blog_tag : "N:1"
+
+' Blog ↔ Picture
+blog ||--o{ blog_picture : "1:N (可选)"
+
+' ============================================================
+' 审核字段说明
+' ============================================================
+note right of blog
+  **内容审核流程**
+  ───────────────
+  ① 发布博客/评论 → audit_status=0
+  ② RabbitMQ 投递审核任务
+  ③ Moderation Service 消费
+  ④ 阿里云 ScanText API
+  ⑤ Feign 回写 audit_status
+     · pass → 1 (APPROVED)
+     · block → 2 (REJECTED)
+     · review → 3 (MANUAL_REVIEW)
+  ⑥ 管理员可人工修改状态
+  
+  **MySQL 触发器**
+  ──────────────
+  · after_blog_insert: 通过后 blog_count+1
+  · after_blog_delete: 取消通过后 blog_count-1
+  · after_blog_star_insert: star_count+1
+  · after_blog_star_delete: star_count-1
+end note
+
+@enduml
+
+' ================================================================
+
+@startuml EmiyaOJ-ER-CrossDB
+
+' ============================================================
+' EmiyaOJ-Cloud 跨库逻辑关系总览
+' ============================================================
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 8
+skinparam defaultFontSize 10
+
+title **EmiyaOJ-Cloud — 跨库逻辑关系总览 (Logical FK Map)**
+
+' 数据库边界
+package "emiya_oj_auth" #E3F2FD {
+    entity "user" as user_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "role" as role_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "permission" as permission_cross {
+        id : BIGINT <<PK>>
+    }
+}
+
+package "emiya_oj_problem" #E8F5E9 {
+    entity "problem" as problem_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "test_case" as test_case_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "language" as language_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "contest" as contest_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "contest_problem" as cp_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "problem_set" as problem_set_cross {
+        id : BIGINT <<PK>>
+    }
+}
+
+package "emiya_oj_judge" #FFF9C4 {
+    entity "submission" as submission_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "submission_judge_result" as sjr_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "submission_case_result" as scr_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "message_event" as me_cross {
+        id : BIGINT <<PK>>
+    }
+}
+
+package "emiya_oj_blog" #F3E5F5 {
+    entity "blog" as blog_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "blog_comment" as bc_cross {
+        id : BIGINT <<PK>>
+    }
+    entity "user_blog" as ub_cross {
+        user_id : BIGINT <<PK>>
+    }
+}
+
+' 跨库逻辑外键关系 (虚线)
+user_cross ..> problem_cross : "author_id"
+user_cross ..> contest_cross : "creator_id"
+user_cross ..> problem_set_cross : "creator_id"
+user_cross ..> submission_cross : "user_id"
+user_cross ..> blog_cross : "user_id"
+user_cross ..> bc_cross : "user_id"
+user_cross ..> ub_cross : "user_id (PK/FK)"
+
+problem_cross ..> submission_cross : "problem_id"
+language_cross ..> submission_cross : "language_id"
+contest_cross ..> submission_cross : "contest_id"
+cp_cross ..> submission_cross : "contest_problem_id"
+test_case_cross ..> scr_cross : "test_case_id"
+problem_cross ..> blog_cross : "problem_id (题解)"
+
+note bottom of submission_cross
+  **跨库数据流**
+  ──────────────
+  Judge Service 通过 Feign
+  调用 Problem Service 获取:
+  · problem (题目信息)
+  · test_case (测试用例)
+  · language (语言配置)
+  
+  Judge Service 通过 Feign
+  调用 Auth Service 获取:
+  · user (用户信息)
+  
+  Blog Service 通过 Feign
+  调用 Problem Service 获取:
+  · problem (题解关联题目)
+  
+  内容审核通过 RabbitMQ
+  解耦 Blog ↔ Moderation
+  Moderation 通过 Feign 回写
+  Blog Service 审核结果
+end note
+
+@enduml
