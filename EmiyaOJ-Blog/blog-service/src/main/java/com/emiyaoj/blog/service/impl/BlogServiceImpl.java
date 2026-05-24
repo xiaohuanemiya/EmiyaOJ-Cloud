@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.emiyaoj.auth.api.AuthUserFeignClient;
+import com.emiyaoj.auth.vo.UserVO;
 import com.emiyaoj.blog.domain.*;
 import com.emiyaoj.blog.dto.*;
 import com.emiyaoj.blog.config.BlogModerationProperties;
@@ -37,8 +39,11 @@ import org.springframework.util.ObjectUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Blog service implementation.
@@ -58,7 +63,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     private final BlogCommentMapper blogCommentMapper;
     private final BlogPictureMapper blogPictureMapper;
     private final BlogLikeMapper blogLikeMapper;
-    private final UserBlogMapper userBlogMapper;
+    private final AuthUserFeignClient authUserFeignClient;
     private final ProblemFeignClient problemFeignClient;
     private final RedisUtil redisUtil;
     private final ModerationTaskPublisher moderationTaskPublisher;
@@ -66,10 +71,11 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
 
     @Override
     public List<BlogVO> selectAll() {
-        return list(new LambdaQueryWrapper<Blog>()
-                .eq(Blog::getAuditStatus, AuditStatus.APPROVED.getCode()))
-                .stream()
-                .map(blog -> convertBlogToVO(blog, null, false))
+        List<Blog> blogs = list(new LambdaQueryWrapper<Blog>()
+                .eq(Blog::getAuditStatus, AuditStatus.APPROVED.getCode()));
+        Map<Long, UserVO> usersById = loadUsersByIds(blogs.stream().map(Blog::getUserId).toList());
+        return blogs.stream()
+                .map(blog -> convertBlogToVO(blog, null, false, usersById))
                 .toList();
     }
 
@@ -88,7 +94,8 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         Page<Blog> page = new Page<>(queryDTO.getPageNo(), queryDTO.getPageSize());
         LambdaQueryWrapper<Blog> wrapper = buildBlogQueryWrapper(queryDTO, userId, permissions);
         this.page(page, wrapper);
-        return PageVO.of(page, blog -> convertBlogToVO(blog, userId, false));
+        Map<Long, UserVO> usersById = loadUsersByIds(page.getRecords().stream().map(Blog::getUserId).toList());
+        return PageVO.of(page, blog -> convertBlogToVO(blog, userId, false, usersById));
     }
 
     @Override
@@ -145,7 +152,8 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         queryDTO.setBlogType(BLOG_TYPE_SOLUTION);
         Page<Blog> page = new Page<>(queryDTO.getPageNo(), queryDTO.getPageSize());
         this.page(page, buildBlogQueryWrapper(queryDTO, userId, null));
-        return PageVO.of(page, blog -> convertBlogToVO(blog, userId, false));
+        Map<Long, UserVO> usersById = loadUsersByIds(page.getRecords().stream().map(Blog::getUserId).toList());
+        return PageVO.of(page, blog -> convertBlogToVO(blog, userId, false, usersById));
     }
 
     @Override
@@ -170,7 +178,10 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         if (isApproved(blog)) {
             increaseViewCount(blog, userId);
         }
-        return convertBlogToVO(getById(blogId), userId, true);
+        Blog refreshed = getById(blogId);
+        Map<Long, UserVO> usersById = loadUsersByIds(
+                refreshed == null || refreshed.getUserId() == null ? List.of() : List.of(refreshed.getUserId()));
+        return convertBlogToVO(refreshed, userId, true, usersById);
     }
 
     @Override
@@ -317,7 +328,8 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         applyCommentAuditVisibility(wrapper, userId, permissions, null);
         blogCommentMapper.selectPage(page, wrapper);
 
-        return PageVO.of(page, this::convertCommentToVO);
+        Map<Long, UserVO> usersById = loadUsersByIds(page.getRecords().stream().map(BlogComment::getUserId).toList());
+        return PageVO.of(page, comment -> convertCommentToVO(comment, usersById));
     }
 
     @Override
@@ -334,7 +346,8 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         if (!canViewComment(comment, userId, permissions)) {
             return null;
         }
-        return convertCommentToVO(comment);
+        Map<Long, UserVO> usersById = loadUsersByIds(comment.getUserId() == null ? List.of() : List.of(comment.getUserId()));
+        return convertCommentToVO(comment, usersById);
     }
 
     @Override
@@ -349,8 +362,10 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
                 .ge(queryDTO.getFromDay() != null, BlogComment::getCreateTime, queryDTO.getFromDay())
                 .le(queryDTO.getToDay() != null, BlogComment::getCreateTime, queryDTO.getToDay());
         applyCommentAuditVisibility(wrapper, userId, permissions, queryDTO.getAuditStatus());
-        return blogCommentMapper.selectList(wrapper).stream()
-                .map(this::convertCommentToVO)
+        List<BlogComment> comments = blogCommentMapper.selectList(wrapper);
+        Map<Long, UserVO> usersById = loadUsersByIds(comments.stream().map(BlogComment::getUserId).toList());
+        return comments.stream()
+                .map(comment -> convertCommentToVO(comment, usersById))
                 .toList();
     }
 
@@ -757,10 +772,43 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         return new BlogTagVO(tag.getId(), tag.getName(), tag.getDesc());
     }
 
-    private BlogVO convertBlogToVO(Blog blog, Long userId, boolean includeProblem) {
+    private Map<Long, UserVO> loadUsersByIds(List<Long> userIds) {
+        List<Long> ids = userIds == null ? List.of() : userIds.stream()
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            ResponseResult<List<UserVO>> result = authUserFeignClient.listUsersByIds(ids);
+            if (result == null || result.getCode() != 200 || result.getData() == null) {
+                return Map.of();
+            }
+            return result.getData().stream()
+                    .filter(user -> user.getId() != null)
+                    .collect(Collectors.toMap(UserVO::getId, Function.identity(), (left, right) -> left));
+        } catch (Exception e) {
+            log.warn("load users failed, ids={}", ids, e);
+            return Map.of();
+        }
+    }
+
+    private String nicknameOf(Long userId, Map<Long, UserVO> usersById) {
+        UserVO user = usersById.get(userId);
+        return user != null && org.springframework.util.StringUtils.hasText(user.getNickname()) ? user.getNickname() : "";
+    }
+
+    private String usernameOf(Long userId, Map<Long, UserVO> usersById) {
+        UserVO user = usersById.get(userId);
+        return user != null && org.springframework.util.StringUtils.hasText(user.getUsername()) ? user.getUsername() : "";
+    }
+
+    private BlogVO convertBlogToVO(Blog blog, Long userId, boolean includeProblem, Map<Long, UserVO> usersById) {
         if (blog == null) return null;
         BlogVO blogVO = new BlogVO();
         BeanUtils.copyProperties(blog, blogVO);
+        blogVO.setAuthorNickname(nicknameOf(blog.getUserId(), usersById));
         blogVO.setContent(blogImageUrlResolver.rewriteLegacyContentUrls(blog.getContent()));
         blogVO.setTags(selectBlogTags(blog.getId()));
         blogVO.setPictures(selectBlogPictures(blog.getId()));
@@ -816,21 +864,12 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         return vo;
     }
 
-    private CommentVO convertCommentToVO(BlogComment bc) {
+    private CommentVO convertCommentToVO(BlogComment bc, Map<Long, UserVO> usersById) {
         if (bc == null) return null;
         CommentVO commentVO = new CommentVO();
         BeanUtils.copyProperties(bc, commentVO);
-
-        Long userId = bc.getUserId();
-        UserBlog ub = userBlogMapper.selectById(userId);
-        if (ub != null) {
-            commentVO.setUsername(ub.getUsername());
-            commentVO.setNickname(ub.getNickname());
-        } else {
-            commentVO.setUsername("");
-            commentVO.setNickname("");
-        }
-
+        commentVO.setUsername(usernameOf(bc.getUserId(), usersById));
+        commentVO.setNickname(nicknameOf(bc.getUserId(), usersById));
         return commentVO;
     }
 }

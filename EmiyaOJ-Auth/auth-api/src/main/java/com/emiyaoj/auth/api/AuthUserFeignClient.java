@@ -12,6 +12,9 @@ import java.util.List;
 @FeignClient(contextId = "authUserFeignClient", name = "auth-service", path = "/user")
 public interface AuthUserFeignClient {
 
+    @GetMapping("/batch")
+    ResponseResult<List<UserVO>> listUsersByIds(@RequestParam("ids") List<Long> ids);
+
     @GetMapping("/permission-users")
     ResponseResult<List<UserVO>> listUsersByPermission(@RequestParam("permissionCode") String permissionCode);
 

@@ -25,6 +25,10 @@
         </dependency>
         <dependency>
             <groupId>com.emiyaoj</groupId>
+            <artifactId>auth-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.emiyaoj</groupId>
             <artifactId>moderation-dto</artifactId>
         </dependency>
         <!-- 公共模块 -->

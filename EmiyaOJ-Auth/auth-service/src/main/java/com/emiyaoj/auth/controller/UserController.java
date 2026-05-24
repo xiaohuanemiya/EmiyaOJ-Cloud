@@ -35,6 +35,12 @@ public class UserController {
         return ResponseResult.success(userService.selectUserPage(pageDTO));
     }
 
+    @GetMapping("/batch")
+    @Operation(summary = "批量查询用户")
+    public ResponseResult<List<UserVO>> batch(@RequestParam List<Long> ids) {
+        return ResponseResult.success(userService.selectUsersByIds(ids));
+    }
+
     /**
      * 根据ID查询用户详情
      */

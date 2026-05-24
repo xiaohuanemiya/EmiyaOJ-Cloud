@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.emiyaoj.auth.api.AuthUserFeignClient;
+import com.emiyaoj.auth.vo.UserVO;
+import com.emiyaoj.blog.config.BlogModerationProperties;
 import com.emiyaoj.blog.domain.Blog;
 import com.emiyaoj.blog.domain.BlogStar;
 import com.emiyaoj.blog.domain.UserBlog;
-import com.emiyaoj.blog.config.BlogModerationProperties;
 import com.emiyaoj.blog.dto.UserBlogBlogsQueryDTO;
 import com.emiyaoj.blog.dto.UserBlogStarsQueryDTO;
 import com.emiyaoj.blog.mapper.BlogMapper;
@@ -17,6 +19,7 @@ import com.emiyaoj.blog.service.IUserBlogService;
 import com.emiyaoj.blog.vo.BlogVO;
 import com.emiyaoj.blog.vo.UserBlogVO;
 import com.emiyaoj.common.domain.PageVO;
+import com.emiyaoj.common.domain.ResponseResult;
 import com.emiyaoj.moderation.dto.AuditStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,10 +28,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
-/**
- * 用户博客服务实现类
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -36,17 +39,29 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
 
     private final BlogMapper blogMapper;
     private final BlogStarMapper blogStarMapper;
+    private final AuthUserFeignClient authUserFeignClient;
 
     @Override
     public UserBlogVO selectUserBlogById(Long id) {
-        UserBlog userBlog = this.getById(id);
-        if (userBlog == null) {
-            // 尝试创建一个空的用户博客记录
-            userBlog = new UserBlog(id);
-            this.save(userBlog);
-        }
         UserBlogVO userBlogVO = new UserBlogVO();
-        BeanUtils.copyProperties(userBlog, userBlogVO);
+        userBlogVO.setUserId(id);
+
+        UserVO user = loadUserById(id);
+        if (user != null) {
+            userBlogVO.setUsername(textOrEmpty(user.getUsername()));
+            userBlogVO.setNickname(textOrEmpty(user.getNickname()));
+        } else {
+            userBlogVO.setUsername("");
+            userBlogVO.setNickname("");
+        }
+
+        userBlogVO.setBlogCount(Math.toIntExact(blogMapper.selectCount(new LambdaQueryWrapper<Blog>()
+                .eq(Blog::getUserId, id)
+                .eq(Blog::getDeleted, 0)
+                .eq(Blog::getAuditStatus, AuditStatus.APPROVED.getCode()))));
+        userBlogVO.setStarCount(Math.toIntExact(blogStarMapper.selectCount(new LambdaQueryWrapper<BlogStar>()
+                .eq(BlogStar::getUserId, id)
+                .eq(BlogStar::getDeleted, 0))));
         return userBlogVO;
     }
 
@@ -64,7 +79,8 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
                 .orderByDesc(Blog::getUpdateTime);
         applyAuditVisibility(wrapper, queryDTO, viewerId, permissions);
         blogMapper.selectPage(page, wrapper);
-        return PageVO.of(page, this::convertBlogToVO);
+        Map<Long, UserVO> usersById = loadUsersByIds(page.getRecords().stream().map(Blog::getUserId).toList());
+        return PageVO.of(page, blog -> convertBlogToVO(blog, usersById));
     }
 
     @Override
@@ -84,7 +100,8 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
                 .filter(blog -> Integer.valueOf(0).equals(blog.getDeleted()))
                 .filter(blog -> Integer.valueOf(AuditStatus.APPROVED.getCode()).equals(blog.getAuditStatus()))
                 .toList();
-        List<BlogVO> blogVOs = blogs.stream().map(this::convertBlogToVO).toList();
+        Map<Long, UserVO> usersById = loadUsersByIds(blogs.stream().map(Blog::getUserId).toList());
+        List<BlogVO> blogVOs = blogs.stream().map(blog -> convertBlogToVO(blog, usersById)).toList();
 
         return new PageVO<>(page.getTotal(), blogVOs, page.getCurrent(), page.getSize());
     }
@@ -95,14 +112,12 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
         if (blog == null || blog.getDeleted() == 1
                 || !Integer.valueOf(AuditStatus.APPROVED.getCode()).equals(blog.getAuditStatus())) return false;
 
-        // 尝试恢复旧记录
         int update = blogStarMapper.update(new LambdaUpdateWrapper<BlogStar>()
                 .eq(BlogStar::getUserId, userId)
                 .eq(BlogStar::getBlogId, blogId)
                 .set(BlogStar::getDeleted, 0));
         if (update == 1) return true;
 
-        // 插入新记录
         BlogStar blogStar = new BlogStar(null, userId, blogId, LocalDateTime.now(), 0);
         return blogStarMapper.insert(blogStar) == 1;
     }
@@ -116,10 +131,43 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
         return update == 1;
     }
 
-    private BlogVO convertBlogToVO(Blog blog) {
+    private UserVO loadUserById(Long userId) {
+        Map<Long, UserVO> usersById = loadUsersByIds(userId == null ? List.of() : List.of(userId));
+        return usersById.get(userId);
+    }
+
+    private Map<Long, UserVO> loadUsersByIds(List<Long> userIds) {
+        List<Long> ids = userIds == null ? List.of() : userIds.stream()
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            ResponseResult<List<UserVO>> result = authUserFeignClient.listUsersByIds(ids);
+            if (result == null || result.getCode() != 200 || result.getData() == null) {
+                return Map.of();
+            }
+            return result.getData().stream()
+                    .filter(user -> user.getId() != null)
+                    .collect(Collectors.toMap(UserVO::getId, Function.identity(), (left, right) -> left));
+        } catch (Exception e) {
+            log.warn("load users failed, ids={}", ids, e);
+            return Map.of();
+        }
+    }
+
+    private String textOrEmpty(String text) {
+        return org.springframework.util.StringUtils.hasText(text) ? text : "";
+    }
+
+    private BlogVO convertBlogToVO(Blog blog, Map<Long, UserVO> usersById) {
         if (blog == null) return null;
         BlogVO blogVO = new BlogVO();
         BeanUtils.copyProperties(blog, blogVO);
+        UserVO author = usersById.get(blog.getUserId());
+        blogVO.setAuthorNickname(author == null ? "" : textOrEmpty(author.getNickname()));
         return blogVO;
     }
 

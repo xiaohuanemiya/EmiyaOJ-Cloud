@@ -22,6 +22,8 @@ public interface IUserService {
 
     UserVO selectUserById(Long id);
 
+    List<UserVO> selectUsersByIds(List<Long> ids);
+
     boolean saveUser(UserSaveDTO saveDTO);
 
     boolean updateUser(UserSaveDTO saveDTO);

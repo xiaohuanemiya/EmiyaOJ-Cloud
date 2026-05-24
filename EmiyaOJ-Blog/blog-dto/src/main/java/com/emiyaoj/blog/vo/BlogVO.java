@@ -24,6 +24,8 @@ public class BlogVO implements Serializable {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
 
+    private String authorNickname;
+
     private String title;
 
     private String content;

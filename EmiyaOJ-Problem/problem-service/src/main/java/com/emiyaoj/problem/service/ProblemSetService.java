@@ -3,7 +3,10 @@ package com.emiyaoj.problem.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.emiyaoj.auth.api.AuthUserFeignClient;
+import com.emiyaoj.auth.vo.UserVO;
 import com.emiyaoj.common.domain.PageVO;
+import com.emiyaoj.common.domain.ResponseResult;
 import com.emiyaoj.common.exception.BadRequestException;
 import com.emiyaoj.common.exception.BaseException;
 import com.emiyaoj.problem.domain.pojo.Problem;
@@ -42,6 +45,7 @@ public class ProblemSetService extends ServiceImpl<ProblemSetMapper, ProblemSet>
     private final ProblemSetProblemMapper problemSetProblemMapper;
     private final ProblemMapper problemMapper;
     private final ProblemService problemService;
+    private final AuthUserFeignClient authUserFeignClient;
 
     public PageVO<ProblemSetVO> queryProblemSetPage(ProblemSetQueryDTO queryDTO, Long userId) {
         Page<ProblemSet> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
@@ -53,7 +57,8 @@ public class ProblemSetService extends ServiceImpl<ProblemSetMapper, ProblemSet>
                 .eq(userId == null, ProblemSet::getStatus, 1)
                 .orderByDesc(ProblemSet::getCreateTime);
         this.page(page, wrapper);
-        return PageVO.of(page, problemSet -> toVO(problemSet, false, userId));
+        Map<Long, UserVO> usersById = loadUsersByIds(page.getRecords().stream().map(ProblemSet::getCreatorId).toList());
+        return PageVO.of(page, problemSet -> toVO(problemSet, false, userId, usersById));
     }
 
     public ProblemSetVO getProblemSetDetail(Long id, Long userId) {
@@ -61,7 +66,8 @@ public class ProblemSetService extends ServiceImpl<ProblemSetMapper, ProblemSet>
         if (problemSet == null || !isVisible(problemSet, userId)) {
             return null;
         }
-        return toVO(problemSet, true, userId);
+        Map<Long, UserVO> usersById = loadUsersByIds(problemSet.getCreatorId() == null ? List.of() : List.of(problemSet.getCreatorId()));
+        return toVO(problemSet, true, userId, usersById);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -81,7 +87,8 @@ public class ProblemSetService extends ServiceImpl<ProblemSetMapper, ProblemSet>
         if (!CollectionUtils.isEmpty(dto.getProblems())) {
             replaceProblemAssociations(problemSet.getId(), dto.getProblems());
         }
-        return toVO(problemSet, true, userId);
+        Map<Long, UserVO> usersById = loadUsersByIds(problemSet.getCreatorId() == null ? List.of() : List.of(problemSet.getCreatorId()));
+        return toVO(problemSet, true, userId, usersById);
     }
 
     public boolean updateProblemSet(ProblemSetSaveDTO dto, Long userId) {
@@ -236,9 +243,37 @@ public class ProblemSetService extends ServiceImpl<ProblemSetMapper, ProblemSet>
                 || (userId != null && problemSet.getCreatorId() != null && problemSet.getCreatorId().equals(userId));
     }
 
-    private ProblemSetVO toVO(ProblemSet problemSet, boolean withProblems, Long userId) {
+    private Map<Long, UserVO> loadUsersByIds(List<Long> userIds) {
+        List<Long> ids = userIds == null ? List.of() : userIds.stream()
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            ResponseResult<List<UserVO>> result = authUserFeignClient.listUsersByIds(ids);
+            if (result == null || result.getCode() != 200 || result.getData() == null) {
+                return Map.of();
+            }
+            return result.getData().stream()
+                    .filter(user -> user.getId() != null)
+                    .collect(Collectors.toMap(UserVO::getId, Function.identity(), (left, right) -> left));
+        } catch (Exception e) {
+            log.warn("load users failed, ids={}", ids, e);
+            return Map.of();
+        }
+    }
+
+    private String nicknameOf(Long userId, Map<Long, UserVO> usersById) {
+        UserVO user = usersById.get(userId);
+        return user != null && StringUtils.hasText(user.getNickname()) ? user.getNickname() : "";
+    }
+
+    private ProblemSetVO toVO(ProblemSet problemSet, boolean withProblems, Long userId, Map<Long, UserVO> usersById) {
         ProblemSetVO vo = new ProblemSetVO();
         BeanUtils.copyProperties(problemSet, vo);
+        vo.setCreatorNickname(nicknameOf(problemSet.getCreatorId(), usersById));
         vo.setProblemCount(Math.toIntExact(problemSetProblemMapper.selectCount(
                 new LambdaQueryWrapper<ProblemSetProblem>().eq(ProblemSetProblem::getSetId, problemSet.getId()))));
         if (withProblems) {

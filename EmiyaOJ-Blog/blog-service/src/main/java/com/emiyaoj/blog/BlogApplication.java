@@ -15,7 +15,7 @@ import com.emiyaoj.blog.config.MinioProperties;
  */
 @SpringBootApplication(scanBasePackages = {"com.emiyaoj.blog", "com.emiyaoj.common"})
 @EnableDiscoveryClient
-@EnableFeignClients(basePackages = "com.emiyaoj.problem.api")
+@EnableFeignClients(basePackages = {"com.emiyaoj.problem.api", "com.emiyaoj.auth.api"})
 @EnableConfigurationProperties({MinioProperties.class, AppFileProperties.class, BlogModerationProperties.class})
 @MapperScan("com.emiyaoj.blog.mapper")
 public class BlogApplication {

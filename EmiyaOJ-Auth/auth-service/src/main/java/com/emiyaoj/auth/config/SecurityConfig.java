@@ -90,6 +90,7 @@ public class SecurityConfig {
                         "/auth/login",
                         "/auth/register",
                         "/auth/user/parse-token",
+                        "/user/batch",
                         // SpringDoc OpenAPI / Swagger UI
                         "/swagger-ui/**",
                         "/swagger-ui.html",

@@ -91,6 +91,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     }
 
     @Override
+    public List<UserVO> selectUsersByIds(List<Long> ids) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return List.of();
+        }
+        List<Long> userIds = ids.stream()
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+        return this.listByIds(userIds).stream()
+                .map(this::convertToPublicVO)
+                .toList();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean saveUser(UserSaveDTO saveDTO) {
         // 检查用户名是否已存在
@@ -279,6 +296,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         UserVO userVO = new UserVO();
         BeanUtils.copyProperties(user, userVO);
         userVO.setStatusDesc(user.getStatus() == 1 ? "启用" : "禁用");
+        return userVO;
+    }
+
+    private UserVO convertToPublicVO(User user) {
+        UserVO userVO = new UserVO();
+        userVO.setId(user.getId());
+        userVO.setUsername(user.getUsername());
+        userVO.setNickname(user.getNickname());
+        userVO.setAvatar(user.getAvatar());
         return userVO;
     }
 }

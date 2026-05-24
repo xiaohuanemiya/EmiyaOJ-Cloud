@@ -17,6 +17,8 @@ public class ProblemSetVO implements Serializable {
 
     private Long creatorId;
 
+    private String creatorNickname;
+
     /** 0-hidden, 1-public. */
     private Integer status;
 
