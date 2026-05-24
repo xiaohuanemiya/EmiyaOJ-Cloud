@@ -1,5 +1,6 @@
 package com.emiyaoj.blog.api;
 
+import com.emiyaoj.blog.vo.BlogUserStatsVO;
 import com.emiyaoj.blog.vo.BlogVO;
 import com.emiyaoj.common.domain.ResponseResult;
 import com.emiyaoj.moderation.dto.ModerationResultDTO;
@@ -23,4 +24,7 @@ public interface BlogFeignClient {
 
     @PostMapping("/blog/internal/moderation/result")
     ResponseResult<Void> applyModerationResult(@RequestBody ModerationResultDTO resultDTO);
+
+    @GetMapping("/blog/internal/user/{userId}/stats")
+    ResponseResult<BlogUserStatsVO> getUserStats(@PathVariable("userId") Long userId);
 }

@@ -24,6 +24,9 @@ public interface ProblemFeignClient {
     @GetMapping("/problem/{id}")
     ResponseResult<ProblemVO> getProblemById(@PathVariable("id") Long id);
 
+    @GetMapping("/problem/internal/batch")
+    ResponseResult<List<ProblemVO>> listPublicProblemsByIds(@RequestParam("ids") List<Long> ids);
+
     /**
      * 获取题目的所有测试用例
      */

@@ -3,6 +3,8 @@ package com.emiyaoj.judge.controller;
 import com.emiyaoj.common.domain.PageDTO;
 import com.emiyaoj.common.domain.PageVO;
 import com.emiyaoj.common.domain.ResponseResult;
+import com.emiyaoj.judge.dto.JudgeUserStatsVO;
+import com.emiyaoj.judge.dto.SolvedProblemVO;
 import com.emiyaoj.judge.dto.SubmissionDetailVO;
 import com.emiyaoj.judge.dto.SubmissionVO;
 import com.emiyaoj.judge.service.SubmissionService;
@@ -62,5 +64,21 @@ public class SubmissionController {
     @GetMapping("/contest/{contestId}")
     public ResponseResult<List<SubmissionVO>> listContestSubmissions(@PathVariable Long contestId) {
         return ResponseResult.success(submissionService.listContestSubmissions(contestId));
+    }
+
+    @Operation(summary = "Get user judge statistics")
+    @GetMapping("/user/{userId}/stats")
+    public ResponseResult<JudgeUserStatsVO> getUserStats(@PathVariable Long userId) {
+        return ResponseResult.success(submissionService.getUserStats(userId));
+    }
+
+    @Operation(summary = "Query user solved problems")
+    @GetMapping("/user/{userId}/solved")
+    public ResponseResult<PageVO<SolvedProblemVO>> getSolvedProblems(
+            @PathVariable Long userId,
+            PageDTO pageDTO,
+            @Parameter(description = "Difficulty: 1 easy, 2 medium, 3 hard")
+            @RequestParam(required = false) Integer difficulty) {
+        return ResponseResult.success(submissionService.getSolvedProblems(pageDTO, userId, difficulty));
     }
 }

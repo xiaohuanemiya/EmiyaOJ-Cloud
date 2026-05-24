@@ -8,14 +8,18 @@ import com.emiyaoj.auth.api.AuthUserFeignClient;
 import com.emiyaoj.auth.vo.UserVO;
 import com.emiyaoj.blog.config.BlogModerationProperties;
 import com.emiyaoj.blog.domain.Blog;
+import com.emiyaoj.blog.domain.BlogLike;
 import com.emiyaoj.blog.domain.BlogStar;
 import com.emiyaoj.blog.domain.UserBlog;
 import com.emiyaoj.blog.dto.UserBlogBlogsQueryDTO;
+import com.emiyaoj.blog.dto.UserBlogLikesQueryDTO;
 import com.emiyaoj.blog.dto.UserBlogStarsQueryDTO;
 import com.emiyaoj.blog.mapper.BlogMapper;
+import com.emiyaoj.blog.mapper.BlogLikeMapper;
 import com.emiyaoj.blog.mapper.BlogStarMapper;
 import com.emiyaoj.blog.mapper.UserBlogMapper;
 import com.emiyaoj.blog.service.IUserBlogService;
+import com.emiyaoj.blog.vo.BlogUserStatsVO;
 import com.emiyaoj.blog.vo.BlogVO;
 import com.emiyaoj.blog.vo.UserBlogVO;
 import com.emiyaoj.common.domain.PageVO;
@@ -39,6 +43,7 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
 
     private final BlogMapper blogMapper;
     private final BlogStarMapper blogStarMapper;
+    private final BlogLikeMapper blogLikeMapper;
     private final AuthUserFeignClient authUserFeignClient;
 
     @Override
@@ -107,6 +112,46 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
     }
 
     @Override
+    public PageVO<BlogVO> selectUserBlogLikes(UserBlogLikesQueryDTO queryDTO) {
+        int pageNo = queryDTO.getPageNo() == null || queryDTO.getPageNo() < 1 ? 1 : queryDTO.getPageNo();
+        int pageSize = queryDTO.getPageSize() == null || queryDTO.getPageSize() < 1 ? 10 : queryDTO.getPageSize();
+        Page<BlogLike> page = new Page<>(pageNo, pageSize);
+        blogLikeMapper.selectPage(page, new LambdaQueryWrapper<BlogLike>()
+                .eq(BlogLike::getUserId, queryDTO.getUserId())
+                .eq(BlogLike::getDeleted, 0)
+                .orderByDesc(BlogLike::getCreateTime));
+
+        List<Long> blogIds = page.getRecords().stream().map(BlogLike::getBlogId).toList();
+        if (blogIds.isEmpty()) {
+            return PageVO.empty((long) pageNo, (long) pageSize);
+        }
+
+        Map<Long, Blog> blogsById = blogMapper.selectByIds(blogIds).stream()
+                .filter(blog -> Integer.valueOf(0).equals(blog.getDeleted()))
+                .filter(blog -> Integer.valueOf(AuditStatus.APPROVED.getCode()).equals(blog.getAuditStatus()))
+                .collect(Collectors.toMap(Blog::getId, Function.identity(), (left, right) -> left));
+        List<Blog> blogs = blogIds.stream()
+                .map(blogsById::get)
+                .filter(blog -> blog != null)
+                .toList();
+        Map<Long, UserVO> usersById = loadUsersByIds(blogs.stream().map(Blog::getUserId).toList());
+        List<BlogVO> blogVOs = blogs.stream().map(blog -> convertBlogToVO(blog, usersById)).toList();
+
+        return new PageVO<>(page.getTotal(), blogVOs, page.getCurrent(), page.getSize());
+    }
+
+    @Override
+    public BlogUserStatsVO selectUserBlogStats(Long userId) {
+        int blogCount = Math.toIntExact(blogMapper.selectCount(new LambdaQueryWrapper<Blog>()
+                .eq(Blog::getUserId, userId)
+                .eq(Blog::getDeleted, 0)
+                .eq(Blog::getAuditStatus, AuditStatus.APPROVED.getCode())));
+        int starCount = countApprovedStarredBlogs(userId);
+        int likedBlogCount = countApprovedLikedBlogs(userId);
+        return new BlogUserStatsVO(userId, blogCount, starCount, likedBlogCount);
+    }
+
+    @Override
     public boolean starBlog(Long blogId, Long userId) {
         Blog blog = blogMapper.selectById(blogId);
         if (blog == null || blog.getDeleted() == 1
@@ -129,6 +174,38 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
                 .eq(BlogStar::getBlogId, blogId)
                 .set(BlogStar::getDeleted, 1));
         return update == 1;
+    }
+
+    private int countApprovedStarredBlogs(Long userId) {
+        List<Long> blogIds = blogStarMapper.selectList(new LambdaQueryWrapper<BlogStar>()
+                        .eq(BlogStar::getUserId, userId)
+                        .eq(BlogStar::getDeleted, 0))
+                .stream()
+                .map(BlogStar::getBlogId)
+                .distinct()
+                .toList();
+        return countApprovedBlogs(blogIds);
+    }
+
+    private int countApprovedLikedBlogs(Long userId) {
+        List<Long> blogIds = blogLikeMapper.selectList(new LambdaQueryWrapper<BlogLike>()
+                        .eq(BlogLike::getUserId, userId)
+                        .eq(BlogLike::getDeleted, 0))
+                .stream()
+                .map(BlogLike::getBlogId)
+                .distinct()
+                .toList();
+        return countApprovedBlogs(blogIds);
+    }
+
+    private int countApprovedBlogs(List<Long> blogIds) {
+        if (blogIds.isEmpty()) {
+            return 0;
+        }
+        return Math.toIntExact(blogMapper.selectCount(new LambdaQueryWrapper<Blog>()
+                .in(Blog::getId, blogIds)
+                .eq(Blog::getDeleted, 0)
+                .eq(Blog::getAuditStatus, AuditStatus.APPROVED.getCode())));
     }
 
     private UserVO loadUserById(Long userId) {

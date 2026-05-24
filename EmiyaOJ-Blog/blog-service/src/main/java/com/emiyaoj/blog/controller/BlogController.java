@@ -198,6 +198,20 @@ public class BlogController {
         return ResponseResult.success(userBlogService.selectUserBlogStars(starsQueryDTO));
     }
 
+    @Operation(summary = "Query user's liked blogs")
+    @PostMapping("/user/{uid}/likes/query")
+    public ResponseResult<PageVO<BlogVO>> userBlogLikes(@Parameter(description = "User ID") @PathVariable Long uid,
+                                                        @RequestBody UserBlogLikesQueryDTO likesQueryDTO) {
+        likesQueryDTO.setUserId(uid);
+        return ResponseResult.success(userBlogService.selectUserBlogLikes(likesQueryDTO));
+    }
+
+    @Operation(summary = "Get user blog statistics")
+    @GetMapping("/internal/user/{uid}/stats")
+    public ResponseResult<BlogUserStatsVO> userBlogStats(@Parameter(description = "User ID") @PathVariable Long uid) {
+        return ResponseResult.success(userBlogService.selectUserBlogStats(uid));
+    }
+
     @Operation(summary = "List tags")
     @GetMapping("/tags")
     public ResponseResult<List<BlogTagVO>> tags() {

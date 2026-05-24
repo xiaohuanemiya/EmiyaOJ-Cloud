@@ -1,8 +1,10 @@
 package com.emiyaoj.blog.service;
 
 import com.emiyaoj.blog.dto.UserBlogBlogsQueryDTO;
+import com.emiyaoj.blog.dto.UserBlogLikesQueryDTO;
 import com.emiyaoj.blog.dto.UserBlogStarsQueryDTO;
 import com.emiyaoj.blog.vo.BlogVO;
+import com.emiyaoj.blog.vo.BlogUserStatsVO;
 import com.emiyaoj.blog.vo.UserBlogVO;
 import com.emiyaoj.common.domain.PageVO;
 
@@ -18,6 +20,10 @@ public interface IUserBlogService {
     PageVO<BlogVO> selectUserBlogBlogs(UserBlogBlogsQueryDTO queryDTO, Long viewerId, String permissions);
 
     PageVO<BlogVO> selectUserBlogStars(UserBlogStarsQueryDTO queryDTO);
+
+    PageVO<BlogVO> selectUserBlogLikes(UserBlogLikesQueryDTO queryDTO);
+
+    BlogUserStatsVO selectUserBlogStats(Long userId);
 
     boolean starBlog(Long blogId, Long userId);
 

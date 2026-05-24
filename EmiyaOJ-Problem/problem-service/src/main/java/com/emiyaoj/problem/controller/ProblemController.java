@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 题目控制器
  * <p>
@@ -47,6 +49,12 @@ public class ProblemController {
             return ResponseResult.fail(404, "题目不存在");
         }
         return ResponseResult.success(vo);
+    }
+
+    @GetMapping("/internal/batch")
+    @Operation(summary = "内部批量查询公开题目")
+    public ResponseResult<List<ProblemVO>> internalBatch(@RequestParam List<Long> ids) {
+        return ResponseResult.success(problemService.listPublicProblemsByIds(ids));
     }
 
     /**

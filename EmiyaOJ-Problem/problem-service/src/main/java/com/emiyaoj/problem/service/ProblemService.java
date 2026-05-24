@@ -65,6 +65,26 @@ public class ProblemService extends ServiceImpl<ProblemMapper, Problem> {
         return convertToVO(problem);
     }
 
+    public List<ProblemVO> listPublicProblemsByIds(List<Long> ids) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return List.of();
+        }
+        List<Long> problemIds = ids.stream()
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (problemIds.isEmpty()) {
+            return List.of();
+        }
+        return this.list(new LambdaQueryWrapper<Problem>()
+                        .in(Problem::getId, problemIds)
+                        .eq(Problem::getStatus, 1)
+                        .eq(Problem::getDeleted, 0))
+                .stream()
+                .map(this::convertToVO)
+                .toList();
+    }
+
     /**
      * 新增题目
      */
