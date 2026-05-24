@@ -1,5 +1,6 @@
 package com.emiyaoj.auth.service;
 
+import com.emiyaoj.auth.dto.UserRegisterDTO;
 import com.emiyaoj.auth.dto.UserSaveDTO;
 import com.emiyaoj.auth.vo.UserVO;
 import com.emiyaoj.common.domain.PageDTO;
@@ -11,6 +12,11 @@ import java.util.List;
  * 用户管理服务接口
  */
 public interface IUserService {
+
+    /**
+     * 用户注册（供用户端使用）
+     */
+    boolean register(UserRegisterDTO registerDTO);
 
     PageVO<UserVO> selectUserPage(PageDTO query);
 

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.emiyaoj.auth.domain.pojo.*;
+import com.emiyaoj.auth.dto.UserRegisterDTO;
 import com.emiyaoj.auth.dto.UserSaveDTO;
 import com.emiyaoj.auth.mapper.*;
 import com.emiyaoj.auth.service.IUserService;
@@ -38,6 +39,37 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     private final PermissionMapper permissionMapper;
     private final RolePermissionMapper rolePermissionMapper;
     private final PasswordEncoder passwordEncoder;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean register(UserRegisterDTO registerDTO) {
+        // 1. 检查用户名是否已存在
+        User existingByUsername = selectUserByUsernameNoMatterDeleted(registerDTO.getUsername());
+        if (existingByUsername != null && existingByUsername.getDeleted() == 0) {
+            throw new RuntimeException("用户名已存在");
+        }
+
+        // 2. 检查邮箱是否已被使用
+        if (registerDTO.getEmail() != null && !registerDTO.getEmail().isBlank()) {
+            User existingByEmail = selectUserByEmail(registerDTO.getEmail());
+            if (existingByEmail != null && existingByEmail.getDeleted() == 0) {
+                throw new RuntimeException("邮箱已被注册");
+            }
+        }
+
+        // 3. 构建用户实体
+        User user = new User();
+        BeanUtils.copyProperties(registerDTO, user);
+        user.setId(IdWorker.getId());
+        user.setPassword(passwordEncoder.encode(registerDTO.getPassword()));
+        user.setStatus(1);
+        user.setDeleted(0);
+        user.setCreateTime(LocalDateTime.now());
+        user.setUpdateTime(LocalDateTime.now());
+
+        log.info("新用户注册: username={}, id={}", registerDTO.getUsername(), user.getId());
+        return this.save(user);
+    }
 
     @Override
     public PageVO<UserVO> selectUserPage(PageDTO query) {
@@ -236,6 +268,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     private User selectUserByUsernameNoMatterDeleted(String username) {
         return this.getOne(new LambdaQueryWrapper<User>()
                 .eq(User::getUsername, username));
+    }
+
+    private User selectUserByEmail(String email) {
+        return this.getOne(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, email));
     }
 
     private UserVO convertToVO(User user) {

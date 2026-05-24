@@ -88,6 +88,7 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                         "/auth/login",
+                        "/auth/register",
                         "/auth/user/parse-token",
                         // SpringDoc OpenAPI / Swagger UI
                         "/swagger-ui/**",

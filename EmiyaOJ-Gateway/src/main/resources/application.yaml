@@ -65,6 +65,7 @@ jwt:
 gateway:
   whitelist:
     - /auth/login
+    - /auth/register
     - /auth/user/parse-token
     - /swagger-ui/**
     - /swagger-ui.html

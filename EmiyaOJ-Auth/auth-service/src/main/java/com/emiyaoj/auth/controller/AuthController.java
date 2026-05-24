@@ -3,17 +3,20 @@ package com.emiyaoj.auth.controller;
 import com.emiyaoj.auth.dto.UserAuthDTO;
 import com.emiyaoj.auth.dto.UserLoginDTO;
 import com.emiyaoj.auth.dto.UserLoginVO;
+import com.emiyaoj.auth.dto.UserRegisterDTO;
 import com.emiyaoj.auth.service.AuthService;
+import com.emiyaoj.auth.service.IUserService;
 import com.emiyaoj.common.domain.ResponseResult;
 import com.emiyaoj.common.utils.BaseContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 认证控制器 — 处理登录、登出、Token 解析
+ * 认证控制器 — 处理登录、登出、Token 解析、注册
  */
 @Tag(name = "认证管理")
 @RestController
@@ -23,6 +26,18 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final IUserService userService;
+
+    /**
+     * 用户注册
+     */
+    @PostMapping("/register")
+    @Operation(summary = "用户注册")
+    public ResponseResult<?> register(@Valid @RequestBody UserRegisterDTO registerDTO) {
+        log.info("注册请求: {}", registerDTO.getUsername());
+        userService.register(registerDTO);
+        return ResponseResult.success("注册成功");
+    }
 
     /**
      * 用户登录
