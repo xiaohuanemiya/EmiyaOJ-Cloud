@@ -9,9 +9,5 @@ public class AppFileProperties {
 
     private String publicBaseUrl = "http://127.0.0.1:9000";
 
-    private Boolean dynamicBaseUrl = true;
-
-    private Integer publicPort = 9000;
-
     private String bucket = "blog-images";
 }
