@@ -24,6 +24,7 @@ public class UserSaveDTO implements Serializable {
     @Size(min = 6, max = 50, message = "密码长度为6-50个字符")
     private String password;
 
+    @NotBlank(message = "昵称不能为空")
     @Size(max = 50, message = "昵称长度不能超过50个字符")
     private String nickname;
 
