@@ -8,6 +8,7 @@ import com.emiyaoj.blog.domain.*;
 import com.emiyaoj.blog.dto.*;
 import com.emiyaoj.blog.config.BlogModerationProperties;
 import com.emiyaoj.blog.mapper.*;
+import com.emiyaoj.blog.service.BlogImageUrlResolver;
 import com.emiyaoj.blog.service.IBlogService;
 import com.emiyaoj.blog.service.ModerationTaskPublisher;
 import com.emiyaoj.blog.vo.BlogPictureVO;
@@ -61,6 +62,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     private final ProblemFeignClient problemFeignClient;
     private final RedisUtil redisUtil;
     private final ModerationTaskPublisher moderationTaskPublisher;
+    private final BlogImageUrlResolver blogImageUrlResolver;
 
     @Override
     public List<BlogVO> selectAll() {
@@ -763,6 +765,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         if (blog == null) return null;
         BlogVO blogVO = new BlogVO();
         BeanUtils.copyProperties(blog, blogVO);
+        blogVO.setContent(blogImageUrlResolver.rewriteLegacyContentUrls(blog.getContent()));
         blogVO.setTags(selectBlogTags(blog.getId()));
         blogVO.setPictures(selectBlogPictures(blog.getId()));
         blogVO.setLiked(isLiked(blog.getId(), userId));
@@ -813,6 +816,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     private BlogPictureVO convertPictureToVO(BlogPicture picture) {
         BlogPictureVO vo = new BlogPictureVO();
         BeanUtils.copyProperties(picture, vo);
+        vo.setUrl(blogImageUrlResolver.buildPublicUrl(picture.getObjectName()));
         return vo;
     }
 

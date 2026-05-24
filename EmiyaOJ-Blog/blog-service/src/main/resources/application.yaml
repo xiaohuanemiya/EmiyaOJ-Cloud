@@ -43,6 +43,13 @@ emiyaoj:
   moderation:
     internal-token: ${MODERATION_INTERNAL_TOKEN:emiyaoj-moderation-internal}
 
+app:
+  file:
+    public-base-url: ${APP_FILE_PUBLIC_BASE_URL:${MINIO_PUBLIC_ENDPOINT:http://127.0.0.1:9000}}
+    dynamic-base-url: ${APP_FILE_DYNAMIC_BASE_URL:true}
+    public-port: ${APP_FILE_PUBLIC_PORT:9000}
+    bucket: ${APP_FILE_BUCKET:${MINIO_BUCKET:blog-images}}
+
 # SpringDoc OpenAPI 配置
 springdoc:
   swagger-ui:

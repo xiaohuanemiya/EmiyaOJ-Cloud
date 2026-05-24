@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import com.emiyaoj.blog.config.BlogModerationProperties;
+import com.emiyaoj.blog.config.AppFileProperties;
 import com.emiyaoj.blog.config.MinioProperties;
 
 /**
@@ -15,7 +16,7 @@ import com.emiyaoj.blog.config.MinioProperties;
 @SpringBootApplication(scanBasePackages = {"com.emiyaoj.blog", "com.emiyaoj.common"})
 @EnableDiscoveryClient
 @EnableFeignClients(basePackages = "com.emiyaoj.problem.api")
-@EnableConfigurationProperties({MinioProperties.class, BlogModerationProperties.class})
+@EnableConfigurationProperties({MinioProperties.class, AppFileProperties.class, BlogModerationProperties.class})
 @MapperScan("com.emiyaoj.blog.mapper")
 public class BlogApplication {
     public static void main(String[] args) {

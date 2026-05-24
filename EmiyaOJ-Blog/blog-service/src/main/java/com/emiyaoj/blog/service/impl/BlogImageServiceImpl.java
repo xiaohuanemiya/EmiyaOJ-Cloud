@@ -3,6 +3,7 @@ package com.emiyaoj.blog.service.impl;
 import com.emiyaoj.blog.config.MinioProperties;
 import com.emiyaoj.blog.domain.BlogPicture;
 import com.emiyaoj.blog.mapper.BlogPictureMapper;
+import com.emiyaoj.blog.service.BlogImageUrlResolver;
 import com.emiyaoj.blog.service.IBlogImageService;
 import com.emiyaoj.blog.vo.BlogPictureVO;
 import com.emiyaoj.common.exception.BaseException;
@@ -51,6 +52,7 @@ public class BlogImageServiceImpl implements IBlogImageService {
     private final MinioClient minioClient;
     private final MinioProperties minioProperties;
     private final BlogPictureMapper blogPictureMapper;
+    private final BlogImageUrlResolver blogImageUrlResolver;
 
     @Override
     public BlogPictureVO upload(MultipartFile file, Long userId) {
@@ -81,7 +83,7 @@ public class BlogImageServiceImpl implements IBlogImageService {
                 userId,
                 null,
                 objectName,
-                buildPublicUrl(objectName),
+                objectName,
                 file.getContentType(),
                 file.getSize(),
                 originalFilename,
@@ -190,11 +192,6 @@ public class BlogImageServiceImpl implements IBlogImageService {
                 """.formatted(bucket);
     }
 
-    private String buildPublicUrl(String objectName) {
-        return minioProperties.getPublicEndpoint().replaceAll("/+$", "")
-                + "/" + minioProperties.getBucket() + "/" + objectName;
-    }
-
     private String getExtension(String filename, String contentType) {
         String ext = StringUtils.getFilenameExtension(filename);
         if (StringUtils.hasText(ext)) {
@@ -212,6 +209,7 @@ public class BlogImageServiceImpl implements IBlogImageService {
     private BlogPictureVO convertPictureToVO(BlogPicture picture) {
         BlogPictureVO vo = new BlogPictureVO();
         BeanUtils.copyProperties(picture, vo);
+        vo.setUrl(blogImageUrlResolver.buildPublicUrl(picture.getObjectName()));
         return vo;
     }
 }
