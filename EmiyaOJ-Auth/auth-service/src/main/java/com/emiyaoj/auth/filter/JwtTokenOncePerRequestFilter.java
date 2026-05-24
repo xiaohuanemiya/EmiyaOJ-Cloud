@@ -46,6 +46,7 @@ public class JwtTokenOncePerRequestFilter extends OncePerRequestFilter {
     /** 白名单路径 */
     private static final String[] WHITELIST = {
             "/auth/login",
+            "/auth/register",
             "/auth/user/parse-token",
             "/swagger-ui/**",
             "/swagger-ui.html",
