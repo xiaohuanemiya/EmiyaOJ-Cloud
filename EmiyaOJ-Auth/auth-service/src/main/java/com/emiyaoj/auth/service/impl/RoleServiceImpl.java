@@ -44,7 +44,6 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements IR
         wrapper.like(StringUtils.hasText(queryDTO.getRoleCode()), Role::getRoleCode, queryDTO.getRoleCode())
                 .like(StringUtils.hasText(queryDTO.getRoleName()), Role::getRoleName, queryDTO.getRoleName())
                 .eq(queryDTO.getStatus() != null, Role::getStatus, queryDTO.getStatus())
-                .eq(Role::getDeleted, 0)
                 .orderByDesc(Role::getCreateTime);
 
         Page<Role> rolePage = this.page(page, wrapper);
@@ -61,7 +60,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements IR
     @Override
     public RoleVO selectRoleById(Long id) {
         Role role = this.getById(id);
-        if (role == null || role.getDeleted() == 1) {
+        if (role == null) {
             return null;
         }
         return convertToVO(role);
@@ -71,7 +70,6 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements IR
     public List<RoleVO> selectAllRoles() {
         LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Role::getStatus, 1)
-                .eq(Role::getDeleted, 0)
                 .orderByAsc(Role::getCreateTime);
 
         return this.list(wrapper).stream().map(this::convertToVO).collect(Collectors.toList());
@@ -103,7 +101,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements IR
     @Transactional(rollbackFor = Exception.class)
     public boolean updateRole(RoleSaveDTO saveDTO) {
         Role existRole = this.getById(saveDTO.getId());
-        if (existRole == null || existRole.getDeleted() == 1) {
+        if (existRole == null) {
             throw new RuntimeException("角色不存在");
         }
 
@@ -132,22 +130,14 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements IR
             throw new RuntimeException("该角色下还有用户，无法删除");
         }
 
-        Role role = new Role();
-        role.setId(id);
-        role.setDeleted(1);
-        role.setUpdateTime(LocalDateTime.now());
-
         rolePermissionMapper.deleteByRoleId(id);
-        return this.updateById(role);
+        return this.removeById(id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteRoles(List<Long> ids) {
-        for (Long id : ids) {
-            deleteRole(id);
-        }
-        return true;
+        return this.removeByIds(ids);
     }
 
     @Override

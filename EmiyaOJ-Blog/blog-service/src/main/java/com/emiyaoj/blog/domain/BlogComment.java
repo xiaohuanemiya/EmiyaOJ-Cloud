@@ -2,6 +2,7 @@ package com.emiyaoj.blog.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -42,5 +43,6 @@ public class BlogComment implements Serializable {
 
     private LocalDateTime updateTime;
 
+    @TableLogic
     private Integer deleted;
 }

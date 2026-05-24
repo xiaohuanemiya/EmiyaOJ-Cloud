@@ -67,7 +67,6 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     @Override
     public List<BlogVO> selectAll() {
         return list(new LambdaQueryWrapper<Blog>()
-                .eq(Blog::getDeleted, 0)
                 .eq(Blog::getAuditStatus, AuditStatus.APPROVED.getCode()))
                 .stream()
                 .map(blog -> convertBlogToVO(blog, null, false))
@@ -119,7 +118,6 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
                 .eq(Blog::getUserId, userId)
                 .eq(Blog::getProblemId, problem.getId())
                 .eq(Blog::getBlogType, BLOG_TYPE_SOLUTION)
-                .eq(Blog::getDeleted, 0)
                 .last("LIMIT 1"));
         if (existing != null) {
             existing.setTitle(saveDTO.getTitle());
@@ -163,7 +161,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     @Override
     public BlogVO selectBlogById(Long blogId, Long userId, String permissions) {
         Blog blog = getById(blogId);
-        if (blog == null || Integer.valueOf(1).equals(blog.getDeleted()) || !isApproved(blog)) {
+        if (blog == null || !isApproved(blog)) {
             return null;
         }
         if (!canViewBlog(blog, userId, permissions)) {
@@ -194,7 +192,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     @Transactional(rollbackFor = Exception.class)
     public boolean editBlog(BlogEditDTO editDTO, Long userId) {
         Blog existing = getById(editDTO.getId());
-        if (existing == null || Integer.valueOf(1).equals(existing.getDeleted())) {
+        if (existing == null) {
             throw new BaseException(404, "博客不存在");
         }
         if (!existing.getUserId().equals(userId)) {
@@ -315,8 +313,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         Page<BlogComment> page = pageDTO.toMpPageDefaultSortByCreateTimeDesc();
 
         LambdaQueryWrapper<BlogComment> wrapper = new LambdaQueryWrapper<BlogComment>()
-                .eq(BlogComment::getBlogId, blogId)
-                .eq(BlogComment::getDeleted, 0);
+                .eq(BlogComment::getBlogId, blogId);
         applyCommentAuditVisibility(wrapper, userId, permissions, null);
         blogCommentMapper.selectPage(page, wrapper);
 
@@ -331,7 +328,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     @Override
     public CommentVO selectCommentById(Long commentId, Long userId, String permissions) {
         BlogComment comment = blogCommentMapper.selectById(commentId);
-        if (comment == null || Integer.valueOf(1).equals(comment.getDeleted())) {
+        if (comment == null) {
             return null;
         }
         if (!canViewComment(comment, userId, permissions)) {
@@ -348,7 +345,6 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     @Override
     public List<CommentVO> selectComment(CommentQueryDTO queryDTO, Long userId, String permissions) {
         LambdaQueryWrapper<BlogComment> wrapper = new LambdaQueryWrapper<BlogComment>()
-                .eq(BlogComment::getDeleted, 0)
                 .eq(queryDTO.getBlogId() != null, BlogComment::getBlogId, queryDTO.getBlogId())
                 .ge(queryDTO.getFromDay() != null, BlogComment::getCreateTime, queryDTO.getFromDay())
                 .le(queryDTO.getToDay() != null, BlogComment::getCreateTime, queryDTO.getToDay());

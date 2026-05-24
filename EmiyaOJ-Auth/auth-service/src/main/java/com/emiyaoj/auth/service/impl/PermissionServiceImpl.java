@@ -47,7 +47,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     @Override
     public PermissionVO selectPermissionById(Long id) {
         Permission permission = this.getById(id);
-        if (permission == null || permission.getDeleted() == 1) {
+        if (permission == null) {
             return null;
         }
         return convertToVO(permission);
@@ -75,7 +75,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     @Transactional(rollbackFor = Exception.class)
     public boolean updatePermission(PermissionSaveDTO saveDTO) {
         Permission existPermission = this.getById(saveDTO.getId());
-        if (existPermission == null || existPermission.getDeleted() == 1) {
+        if (existPermission == null) {
             throw new RuntimeException("权限不存在");
         }
 
@@ -95,8 +95,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     public boolean deletePermission(Long id) {
         // 检查是否有子权限
         long childCount = this.count(new LambdaQueryWrapper<Permission>()
-                .eq(Permission::getParentId, id)
-                .eq(Permission::getDeleted, 0));
+                .eq(Permission::getParentId, id));
         if (childCount > 0) {
             throw new RuntimeException("该权限下还有子权限，无法删除");
         }
@@ -107,21 +106,13 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             throw new RuntimeException("该权限已被角色使用，无法删除");
         }
 
-        Permission permission = new Permission();
-        permission.setId(id);
-        permission.setDeleted(1);
-        permission.setUpdateTime(LocalDateTime.now());
-
-        return this.updateById(permission);
+        return this.removeById(id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deletePermissions(List<Long> ids) {
-        for (Long id : ids) {
-            deletePermission(id);
-        }
-        return true;
+        return this.removeByIds(ids);
     }
 
     @Override
@@ -136,8 +127,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     @Override
     public boolean existsPermissionCode(String permissionCode, Long excludeId) {
         LambdaQueryWrapper<Permission> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Permission::getPermissionCode, permissionCode)
-                .eq(Permission::getDeleted, 0);
+        wrapper.eq(Permission::getPermissionCode, permissionCode);
         if (excludeId != null) {
             wrapper.ne(Permission::getId, excludeId);
         }

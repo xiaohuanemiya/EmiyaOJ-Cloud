@@ -44,7 +44,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         Page<User> page = query.toMpPageDefaultSortByCreateTimeDesc();
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getDeleted, 0);
         page(page, wrapper);
 
         return PageVO.of(page, this::convertToVO);
@@ -53,7 +52,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     public UserVO selectUserById(Long id) {
         User user = this.getById(id);
-        if (user == null || user.getDeleted() == 1) {
+        if (user == null) {
             return null;
         }
         return convertToVO(user);
@@ -95,7 +94,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Transactional(rollbackFor = Exception.class)
     public boolean updateUser(UserSaveDTO saveDTO) {
         User existUser = this.getById(saveDTO.getId());
-        if (existUser == null || existUser.getDeleted() == 1) {
+        if (existUser == null) {
             throw new RuntimeException("用户不存在");
         }
 
@@ -128,22 +127,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteUser(Long id) {
-        User user = new User();
-        user.setId(id);
-        user.setDeleted(1);
-        user.setUpdateTime(LocalDateTime.now());
-
         userRoleMapper.deleteByUserId(id);
-        return this.updateById(user);
+        return this.removeById(id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteUsers(List<Long> ids) {
-        for (Long id : ids) {
-            deleteUser(id);
-        }
-        return true;
+        return this.removeByIds(ids);
     }
 
     @Override
@@ -239,8 +230,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     private User selectUserByUsername(String username) {
         return this.getOne(new LambdaQueryWrapper<User>()
-                .eq(User::getUsername, username)
-                .eq(User::getDeleted, 0));
+                .eq(User::getUsername, username));
     }
 
     private User selectUserByUsernameNoMatterDeleted(String username) {
