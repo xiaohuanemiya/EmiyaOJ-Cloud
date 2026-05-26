@@ -32,6 +32,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -250,7 +251,11 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         if (active != null) {
             return true;
         }
-        blogLikeMapper.insert(new BlogLike(null, userId, blogId, LocalDateTime.now(), 0));
+        try {
+            blogLikeMapper.insert(new BlogLike(null, userId, blogId, LocalDateTime.now(), 0));
+        } catch (DuplicateKeyException e) {
+            return true;
+        }
         incrementLikeCount(blog.getId(), 1);
         return true;
     }

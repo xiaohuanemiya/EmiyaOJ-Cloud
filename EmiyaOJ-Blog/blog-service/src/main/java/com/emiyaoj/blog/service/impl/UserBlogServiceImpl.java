@@ -28,7 +28,9 @@ import com.emiyaoj.moderation.dto.AuditStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -152,28 +154,46 @@ public class UserBlogServiceImpl extends ServiceImpl<UserBlogMapper, UserBlog> i
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean starBlog(Long blogId, Long userId) {
         Blog blog = blogMapper.selectById(blogId);
         if (blog == null || blog.getDeleted() == 1
                 || !Integer.valueOf(AuditStatus.APPROVED.getCode()).equals(blog.getAuditStatus())) return false;
 
-        int update = blogStarMapper.update(new LambdaUpdateWrapper<BlogStar>()
+        int restored = blogStarMapper.update(new LambdaUpdateWrapper<BlogStar>()
                 .eq(BlogStar::getUserId, userId)
                 .eq(BlogStar::getBlogId, blogId)
-                .set(BlogStar::getDeleted, 0));
-        if (update == 1) return true;
+                .eq(BlogStar::getDeleted, 1)
+                .set(BlogStar::getDeleted, 0)
+                .set(BlogStar::getCreateTime, LocalDateTime.now()));
+        if (restored == 1) return true;
+
+        BlogStar active = blogStarMapper.selectOne(new LambdaQueryWrapper<BlogStar>()
+                .eq(BlogStar::getUserId, userId)
+                .eq(BlogStar::getBlogId, blogId)
+                .eq(BlogStar::getDeleted, 0)
+                .last("LIMIT 1"));
+        if (active != null) {
+            return true;
+        }
 
         BlogStar blogStar = new BlogStar(null, userId, blogId, LocalDateTime.now(), 0);
-        return blogStarMapper.insert(blogStar) == 1;
+        try {
+            return blogStarMapper.insert(blogStar) == 1;
+        } catch (DuplicateKeyException e) {
+            return true;
+        }
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean unstarBlog(Long blogId, Long userId) {
-        int update = blogStarMapper.update(new LambdaUpdateWrapper<BlogStar>()
+        blogStarMapper.update(new LambdaUpdateWrapper<BlogStar>()
                 .eq(BlogStar::getUserId, userId)
                 .eq(BlogStar::getBlogId, blogId)
+                .eq(BlogStar::getDeleted, 0)
                 .set(BlogStar::getDeleted, 1));
-        return update == 1;
+        return true;
     }
 
     private int countApprovedStarredBlogs(Long userId) {
