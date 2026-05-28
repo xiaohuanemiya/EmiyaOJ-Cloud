@@ -8,6 +8,7 @@ import com.emiyaoj.problem.mapper.TestCaseMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -114,6 +115,25 @@ class TestCaseServiceTest {
         verify(testCaseMapper, times(1)).insert(any(TestCase.class));
     }
 
+    @Test
+    void saveTestCase_shouldAllowNullInputAndOutput() {
+        when(testCaseMapper.insert(any(TestCase.class))).thenReturn(1);
+
+        TestCaseSaveDTO dto = new TestCaseSaveDTO();
+        dto.setProblemId(10L);
+
+        TestCaseVO vo = testCaseService.saveTestCase(dto);
+
+        assertNotNull(vo);
+        assertEquals(10L, vo.getProblemId());
+        assertNull(vo.getInput());
+        assertNull(vo.getOutput());
+        ArgumentCaptor<TestCase> captor = ArgumentCaptor.forClass(TestCase.class);
+        verify(testCaseMapper).insert(captor.capture());
+        assertNull(captor.getValue().getInput());
+        assertNull(captor.getValue().getOutput());
+    }
+
     // ======================== batchSaveTestCases ========================
 
     @Test
@@ -155,6 +175,25 @@ class TestCaseServiceTest {
 
         assertTrue(result);
         verify(testCaseMapper, times(1)).updateById(any(TestCase.class));
+    }
+
+    @Test
+    void updateTestCase_shouldAllowClearingInputAndOutputToNull() {
+        TestCase existing = buildTestCase(1L, 10L, "old input", "old output", 0, 5, 0);
+        when(testCaseMapper.selectById(1L)).thenReturn(existing);
+        when(testCaseMapper.updateById(any(TestCase.class))).thenReturn(1);
+
+        TestCaseSaveDTO dto = new TestCaseSaveDTO();
+        dto.setId(1L);
+        dto.setProblemId(10L);
+
+        boolean result = testCaseService.updateTestCase(dto);
+
+        assertTrue(result);
+        ArgumentCaptor<TestCase> captor = ArgumentCaptor.forClass(TestCase.class);
+        verify(testCaseMapper).updateById(captor.capture());
+        assertNull(captor.getValue().getInput());
+        assertNull(captor.getValue().getOutput());
     }
 
     @Test

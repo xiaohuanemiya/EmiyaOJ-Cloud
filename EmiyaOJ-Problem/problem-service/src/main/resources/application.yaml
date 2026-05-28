@@ -28,6 +28,12 @@ logging:
   level:
     com.emiyaoj: DEBUG
 
+judge:
+  internal-token: ${JUDGE_INTERNAL_TOKEN:emiyaoj-judge-internal}
+
+test-case-generator:
+  max-generated-cases: ${TEST_CASE_GENERATOR_MAX_GENERATED_CASES:1000}
+
 # SpringDoc OpenAPI 配置
 springdoc:
   swagger-ui:

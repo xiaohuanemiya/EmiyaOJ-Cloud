@@ -16,10 +16,10 @@ public class TestCaseSaveDTO implements Serializable {
     /** 关联题目 ID（新增时必填） */
     private Long problemId;
 
-    /** 输入数据 */
+    /** 输入数据（可选，null 表示无标准输入） */
     private String input;
 
-    /** 预期输出 */
+    /** 预期输出（可选，null 表示期望无输出） */
     private String output;
 
     /** 是否为样例：0-否，1-是 */

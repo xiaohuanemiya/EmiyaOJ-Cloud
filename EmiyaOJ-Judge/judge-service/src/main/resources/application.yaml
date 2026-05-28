@@ -31,6 +31,10 @@ jwt:
 
 go-judge:
   url: ${GO_JUDGE_URL:http://localhost:5050}
+  response-max-in-memory-size: ${GO_JUDGE_RESPONSE_MAX_IN_MEMORY_SIZE:201326592}
+
+judge:
+  internal-token: ${JUDGE_INTERNAL_TOKEN:emiyaoj-judge-internal}
 
 logging:
   level:

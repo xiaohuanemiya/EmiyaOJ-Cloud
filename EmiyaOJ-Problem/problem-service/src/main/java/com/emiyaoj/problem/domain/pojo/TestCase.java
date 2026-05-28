@@ -18,8 +18,10 @@ public class TestCase implements Serializable {
 
     private Long problemId;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String input;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String output;
 
     /** 是否为样例：0-否，1-是 */

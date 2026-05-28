@@ -493,13 +493,14 @@ erDiagram
 | 19 | 题目标签 | tag | id | emiya_oj_problem | 题目算法标签字典 |
 | 20 | 题目-标签关联 | problem_tag | id | emiya_oj_problem | 题目与标签多对多关联 |
 | 21 | 测试用例 | test_case | id | emiya_oj_problem | 题目测试用例数据 |
-| 22 | 竞赛信息 | contest | id | emiya_oj_problem | 竞赛/比赛定义 |
-| 23 | 竞赛-题目关联 | contest_problem | id | emiya_oj_problem | 竞赛包含的题目 |
-| 24 | 竞赛报名 | contest_registration | id | emiya_oj_problem | 用户竞赛报名记录 |
-| 25 | 竞赛管理员 | contest_admin | id | emiya_oj_problem | 竞赛管理员关联 |
-| 26 | 编程语言 | language | id | emiya_oj_problem | 支持的编程语言配置 |
-| 27 | 题目集 | problem_set | id | emiya_oj_problem | 题目集合/题单 |
-| 28 | 题目集-题目关联 | problem_set_problem | id | emiya_oj_problem | 题目集包含的题目 |
+| 22 | 测试用例生成器 | test_case_generator | id | emiya_oj_problem | 每题一个测试数据生成器描述与 Python 脚本 |
+| 23 | 竞赛信息 | contest | id | emiya_oj_problem | 竞赛/比赛定义 |
+| 24 | 竞赛-题目关联 | contest_problem | id | emiya_oj_problem | 竞赛包含的题目 |
+| 25 | 竞赛报名 | contest_registration | id | emiya_oj_problem | 用户竞赛报名记录 |
+| 26 | 竞赛管理员 | contest_admin | id | emiya_oj_problem | 竞赛管理员关联 |
+| 27 | 编程语言 | language | id | emiya_oj_problem | 支持的编程语言配置 |
+| 28 | 题目集 | problem_set | id | emiya_oj_problem | 题目集合/题单 |
+| 29 | 题目集-题目关联 | problem_set_problem | id | emiya_oj_problem | 题目集包含的题目 |
 
 ---
 
@@ -1098,6 +1099,32 @@ OJ 核心——题目定义，包含描述、限制条件与统计数据。
 | idx_problem_id | problem_id | 普通索引 |
 | idx_is_sample | is_sample | 普通索引 |
 | idx_sort_order | sort_order | 普通索引 |
+
+---
+
+#### 2.6.4.1 测试用例生成器（test_case_generator）
+
+每个题目最多维护一份测试数据生成器描述和一份 Python 生成器脚本。生成器脚本通过 Judge Service 复用 Go-Judge 沙箱执行，执行成功后由 Problem Service 将 stdout 中的 JSON 测试用例写入 `test_case`。
+
+| Attribute / Logical Rolename | Column Name | Datatype | Null | Default | Definition |
+|------------------------------|-------------|----------|------|---------|------------|
+| 生成器ID | id | BIGINT | N | AUTO_INCREMENT | 主键，自增 |
+| 题目ID | problem_id | BIGINT | N | — | 关联 problem.id，每题唯一 |
+| 生成器描述 | spec | LONGTEXT | N | — | TestCaseGeneratorSpec，说明数据范围、边界、分组等 |
+| 生成器脚本 | generator_code | LONGTEXT | Y | NULL | Python TestCaseGenerator 脚本 |
+| 逻辑删除 | deleted | TINYINT | Y | 0 | 0-未删除，1-已删除 |
+| 创建时间 | create_time | DATETIME | Y | CURRENT_TIMESTAMP | 记录创建时间 |
+| 更新时间 | update_time | DATETIME | Y | CURRENT_TIMESTAMP ON UPDATE | 记录更新时间 |
+| 创建者 | create_by | BIGINT | Y | NULL | 创建用户ID |
+| 更新者 | update_by | BIGINT | Y | NULL | 最近更新用户ID |
+
+**索引**：
+
+| 索引名 | 字段 | 类型 |
+|--------|------|------|
+| PRIMARY | id | 主键 |
+| uk_problem_id | problem_id | 唯一索引 |
+| idx_deleted | deleted | 普通索引 |
 
 ---
 
