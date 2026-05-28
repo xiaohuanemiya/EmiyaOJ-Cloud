@@ -172,6 +172,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_USER: root
       MYSQL_PASSWORD: root
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JUDGE_INTERNAL_TOKEN: ${JUDGE_INTERNAL_TOKEN:-emiyaoj-judge-internal}
@@ -199,6 +200,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_USER: root
       MYSQL_PASSWORD: root
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
@@ -225,6 +227,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_USER: root
       MYSQL_PASSWORD: root
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       GO_JUDGE_URL: http://go-judge:5050
@@ -255,6 +258,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_USER: root
       MYSQL_PASSWORD: root
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MINIO_ENDPOINT: http://minio:9000
