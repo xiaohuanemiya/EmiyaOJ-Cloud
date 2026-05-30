@@ -60,4 +60,7 @@ public class ProblemVO implements Serializable {
 
     /** 关联标签名称 */
     private List<String> tags;
+
+    /** Bound images used by Markdown problem statements. */
+    private List<ProblemPictureVO> pictures;
 }

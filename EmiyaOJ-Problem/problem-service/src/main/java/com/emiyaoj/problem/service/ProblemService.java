@@ -1,16 +1,21 @@
 package com.emiyaoj.problem.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.emiyaoj.common.domain.PageVO;
+import com.emiyaoj.common.exception.BaseException;
 import com.emiyaoj.problem.domain.pojo.Problem;
+import com.emiyaoj.problem.domain.pojo.ProblemPicture;
 import com.emiyaoj.problem.domain.pojo.ProblemTag;
 import com.emiyaoj.problem.domain.pojo.Tag;
+import com.emiyaoj.problem.dto.ProblemPictureVO;
 import com.emiyaoj.problem.dto.ProblemQueryDTO;
 import com.emiyaoj.problem.dto.ProblemSaveDTO;
 import com.emiyaoj.problem.dto.ProblemVO;
 import com.emiyaoj.problem.mapper.ProblemMapper;
+import com.emiyaoj.problem.mapper.ProblemPictureMapper;
 import com.emiyaoj.problem.mapper.ProblemTagMapper;
 import com.emiyaoj.problem.mapper.TagMapper;
 import lombok.RequiredArgsConstructor;
@@ -24,10 +29,11 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * 题目服务实现
+ * Problem service implementation.
  */
 @Slf4j
 @Service
@@ -36,10 +42,9 @@ public class ProblemService extends ServiceImpl<ProblemMapper, Problem> {
 
     private final ProblemTagMapper problemTagMapper;
     private final TagMapper tagMapper;
+    private final ProblemPictureMapper problemPictureMapper;
+    private final ProblemImageUrlResolver problemImageUrlResolver;
 
-    /**
-     * 分页查询题目列表
-     */
     public PageVO<ProblemVO> queryProblemPage(ProblemQueryDTO queryDTO) {
         Page<Problem> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
 
@@ -51,18 +56,15 @@ public class ProblemService extends ServiceImpl<ProblemMapper, Problem> {
 
         this.page(page, wrapper);
 
-        return PageVO.of(page, this::convertToVO);
+        return PageVO.of(page, problem -> convertToVO(problem, false));
     }
 
-    /**
-     * 查询题目详情
-     */
     public ProblemVO getProblemDetail(Long id) {
         Problem problem = this.getById(id);
         if (problem == null) {
             return null;
         }
-        return convertToVO(problem);
+        return convertToVO(problem, true);
     }
 
     public List<ProblemVO> listPublicProblemsByIds(List<Long> ids) {
@@ -81,13 +83,10 @@ public class ProblemService extends ServiceImpl<ProblemMapper, Problem> {
                         .eq(Problem::getStatus, 1)
                         .eq(Problem::getDeleted, 0))
                 .stream()
-                .map(this::convertToVO)
+                .map(problem -> convertToVO(problem, false))
                 .toList();
     }
 
-    /**
-     * 新增题目
-     */
     @Transactional(rollbackFor = Exception.class)
     public boolean saveProblem(ProblemSaveDTO dto, Long operatorId) {
         Problem problem = new Problem();
@@ -102,16 +101,15 @@ public class ProblemService extends ServiceImpl<ProblemMapper, Problem> {
 
         boolean saved = this.save(problem);
 
-        // 保存标签关联
         if (saved && !CollectionUtils.isEmpty(dto.getTagIds())) {
             saveTagAssociations(problem.getId(), dto.getTagIds());
+        }
+        if (saved && dto.getPictureIds() != null) {
+            bindPictures(problem.getId(), dto.getPictureIds(), operatorId);
         }
         return saved;
     }
 
-    /**
-     * 更新题目
-     */
     @Transactional(rollbackFor = Exception.class)
     public boolean updateProblem(ProblemSaveDTO dto, Long operatorId) {
         Problem problem = this.getById(dto.getId());
@@ -125,27 +123,29 @@ public class ProblemService extends ServiceImpl<ProblemMapper, Problem> {
 
         boolean updated = this.updateById(problem);
 
-        // 重新关联标签
         if (updated && dto.getTagIds() != null) {
-            // 先删除旧关联
             problemTagMapper.delete(new LambdaQueryWrapper<ProblemTag>()
                     .eq(ProblemTag::getProblemId, dto.getId()));
-            // 再新增
             if (!dto.getTagIds().isEmpty()) {
                 saveTagAssociations(dto.getId(), dto.getTagIds());
             }
         }
+        if (updated && dto.getPictureIds() != null) {
+            bindPictures(dto.getId(), dto.getPictureIds(), operatorId);
+        }
         return updated;
     }
 
-    /**
-     * 删除题目（逻辑删除）
-     */
+    @Transactional(rollbackFor = Exception.class)
     public boolean deleteProblem(Long id) {
-        return this.removeById(id);
+        boolean removed = this.removeById(id);
+        if (removed) {
+            problemPictureMapper.update(new UpdateWrapper<ProblemPicture>()
+                    .eq("problem_id", id)
+                    .set("problem_id", null));
+        }
+        return removed;
     }
-
-    // ======================== 私有方法 ========================
 
     private void saveTagAssociations(Long problemId, List<Long> tagIds) {
         for (Long tagId : tagIds) {
@@ -157,29 +157,78 @@ public class ProblemService extends ServiceImpl<ProblemMapper, Problem> {
         }
     }
 
-    private ProblemVO convertToVO(Problem problem) {
+    private void bindPictures(Long problemId, List<Long> pictureIds, Long userId) {
+        problemPictureMapper.update(new UpdateWrapper<ProblemPicture>()
+                .eq("problem_id", problemId)
+                .set("problem_id", null));
+        if (CollectionUtils.isEmpty(pictureIds)) {
+            return;
+        }
+        if (pictureIds.stream().anyMatch(Objects::isNull)) {
+            throw new BaseException(400, "图片不存在");
+        }
+        List<Long> ids = pictureIds.stream().distinct().toList();
+        List<ProblemPicture> pictures = problemPictureMapper.selectByIds(ids);
+        if (pictures.size() != ids.size()) {
+            throw new BaseException(400, "图片不存在");
+        }
+        boolean invalid = pictures.stream().anyMatch(picture ->
+                !picture.getUserId().equals(userId) || Integer.valueOf(1).equals(picture.getDeleted()));
+        if (invalid) {
+            throw new BaseException(400, "只能绑定自己上传的有效图片");
+        }
+        problemPictureMapper.update(new UpdateWrapper<ProblemPicture>()
+                .in("id", ids)
+                .set("problem_id", problemId));
+    }
+
+    private ProblemVO convertToVO(Problem problem, boolean includePictures) {
         ProblemVO vo = new ProblemVO();
         BeanUtils.copyProperties(problem, vo);
+        vo.setDescription(problemImageUrlResolver.rewriteLegacyContentUrls(problem.getDescription()));
+        vo.setInputDescription(problemImageUrlResolver.rewriteLegacyContentUrls(problem.getInputDescription()));
+        vo.setOutputDescription(problemImageUrlResolver.rewriteLegacyContentUrls(problem.getOutputDescription()));
+        vo.setHint(problemImageUrlResolver.rewriteLegacyContentUrls(problem.getHint()));
+        vo.setDifficultyDesc(difficultyDesc(problem.getDifficulty()));
+        vo.setTags(selectProblemTags(problem.getId()));
+        vo.setPictures(includePictures ? selectProblemPictures(problem.getId()) : Collections.emptyList());
+        return vo;
+    }
 
-        // 难度描述
-        vo.setDifficultyDesc(switch (problem.getDifficulty()) {
+    private String difficultyDesc(Integer difficulty) {
+        return switch (difficulty == null ? 0 : difficulty) {
             case 1 -> "简单";
             case 2 -> "中等";
             case 3 -> "困难";
             default -> "未知";
-        });
+        };
+    }
 
-        // 查询关联标签
+    private List<String> selectProblemTags(Long problemId) {
         List<ProblemTag> problemTags = problemTagMapper.selectList(
-                new LambdaQueryWrapper<ProblemTag>().eq(ProblemTag::getProblemId, problem.getId()));
-        if (!CollectionUtils.isEmpty(problemTags)) {
-            List<Long> tagIds = problemTags.stream().map(ProblemTag::getTagId).toList();
-            List<Tag> tags = tagMapper.selectBatchIds(tagIds);
-            vo.setTags(tags.stream().map(Tag::getName).collect(Collectors.toList()));
-        } else {
-            vo.setTags(Collections.emptyList());
+                new LambdaQueryWrapper<ProblemTag>().eq(ProblemTag::getProblemId, problemId));
+        if (CollectionUtils.isEmpty(problemTags)) {
+            return Collections.emptyList();
         }
+        List<Long> tagIds = problemTags.stream().map(ProblemTag::getTagId).toList();
+        List<Tag> tags = tagMapper.selectBatchIds(tagIds);
+        return tags.stream().map(Tag::getName).collect(Collectors.toList());
+    }
 
+    private List<ProblemPictureVO> selectProblemPictures(Long problemId) {
+        return problemPictureMapper.selectList(new LambdaQueryWrapper<ProblemPicture>()
+                        .eq(ProblemPicture::getProblemId, problemId)
+                        .eq(ProblemPicture::getDeleted, 0)
+                        .orderByAsc(ProblemPicture::getCreateTime))
+                .stream()
+                .map(this::convertPictureToVO)
+                .toList();
+    }
+
+    private ProblemPictureVO convertPictureToVO(ProblemPicture picture) {
+        ProblemPictureVO vo = new ProblemPictureVO();
+        BeanUtils.copyProperties(picture, vo);
+        vo.setUrl(problemImageUrlResolver.buildPublicUrl(picture.getObjectName()));
         return vo;
     }
 }

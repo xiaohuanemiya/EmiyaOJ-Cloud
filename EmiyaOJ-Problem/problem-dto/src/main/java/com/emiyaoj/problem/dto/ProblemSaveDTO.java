@@ -47,4 +47,7 @@ public class ProblemSaveDTO implements Serializable {
 
     /** 标签 ID 列表 */
     private List<Long> tagIds;
+
+    /** Uploaded image IDs to bind to the problem after save/update. */
+    private List<Long> pictureIds;
 }

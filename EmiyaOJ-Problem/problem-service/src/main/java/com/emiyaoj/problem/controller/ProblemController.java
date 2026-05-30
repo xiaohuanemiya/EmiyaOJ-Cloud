@@ -2,15 +2,22 @@ package com.emiyaoj.problem.controller;
 
 import com.emiyaoj.common.domain.PageVO;
 import com.emiyaoj.common.domain.ResponseResult;
+import com.emiyaoj.problem.dto.ProblemPictureVO;
 import com.emiyaoj.problem.dto.ProblemQueryDTO;
 import com.emiyaoj.problem.dto.ProblemSaveDTO;
 import com.emiyaoj.problem.dto.ProblemVO;
+import com.emiyaoj.problem.service.IProblemImageService;
 import com.emiyaoj.problem.service.ProblemService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -27,6 +34,7 @@ import java.util.List;
 public class ProblemController {
 
     private final ProblemService problemService;
+    private final IProblemImageService problemImageService;
 
     /**
      * 分页查询题目列表
@@ -55,6 +63,30 @@ public class ProblemController {
     @Operation(summary = "内部批量查询公开题目")
     public ResponseResult<List<ProblemVO>> internalBatch(@RequestParam List<Long> ids) {
         return ResponseResult.success(problemService.listPublicProblemsByIds(ids));
+    }
+
+    /**
+     * Problem image upload/download/delete.
+     */
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload problem image")
+    public ResponseResult<ProblemPictureVO> uploadImage(@RequestPart("file") MultipartFile file,
+                                                        @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
+        return ResponseResult.success(problemImageService.upload(file, userId));
+    }
+
+    @GetMapping("/images/{id}/download")
+    @Operation(summary = "Download problem image")
+    public ResponseEntity<InputStreamResource> downloadImage(@Parameter(description = "Image ID") @PathVariable Long id) {
+        return problemImageService.download(id);
+    }
+
+    @DeleteMapping("/images/{id}")
+    @Operation(summary = "Delete problem image")
+    public ResponseResult<?> deleteImage(@Parameter(description = "Image ID") @PathVariable Long id,
+                                         @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId) {
+        boolean success = problemImageService.delete(id, userId);
+        return success ? ResponseResult.success() : ResponseResult.fail("删除失败");
     }
 
     /**
