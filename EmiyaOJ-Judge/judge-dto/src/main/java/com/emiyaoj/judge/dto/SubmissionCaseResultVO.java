@@ -35,5 +35,15 @@ public class SubmissionCaseResultVO implements Serializable {
 
     private String errorMessage;
 
+    private Integer isSample;
+
+    private String inputPreview;
+
+    private String expectedOutputPreview;
+
+    private String actualOutputPreview;
+
+    private String outputDiffSummary;
+
     private LocalDateTime createTime;
 }

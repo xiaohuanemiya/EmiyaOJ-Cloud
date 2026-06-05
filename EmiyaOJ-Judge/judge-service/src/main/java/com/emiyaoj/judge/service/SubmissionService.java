@@ -11,6 +11,7 @@ import com.emiyaoj.judge.domain.entity.Submission;
 import com.emiyaoj.judge.domain.entity.SubmissionCaseResult;
 import com.emiyaoj.judge.domain.entity.SubmissionJudgeResult;
 import com.emiyaoj.judge.dto.DifficultySolvedStatsVO;
+import com.emiyaoj.judge.dto.JudgeFeedbackVO;
 import com.emiyaoj.judge.dto.JudgeUserStatsVO;
 import com.emiyaoj.judge.dto.SolvedProblemVO;
 import com.emiyaoj.judge.dto.SubmissionCaseResultVO;
@@ -50,6 +51,7 @@ public class SubmissionService {
     private final SubmissionCaseResultMapper caseResultMapper;
     private final JudgeExecutor judgeExecutor;
     private final ProblemFeignClient problemFeignClient;
+    private final JudgeFeedbackService judgeFeedbackService;
 
     public SubmissionVO submitCode(SubmitCodeDTO dto, Long userId) {
         ResponseResult<ProblemVO> problemResult = problemFeignClient.getProblemById(dto.getProblemId());
@@ -121,7 +123,16 @@ public class SubmissionService {
         SubmissionDetailVO vo = new SubmissionDetailVO();
         BeanUtils.copyProperties(toSubmissionVO(submission, judgeResult), vo);
         vo.setCaseResults(caseResults.stream().map(this::toCaseResultVO).toList());
+        vo.setFeedback(judgeFeedbackService.getFeedbackBySubmissionId(id));
         return vo;
+    }
+
+    public JudgeFeedbackVO getFeedbackBySubmissionId(Long submissionId) {
+        Submission submission = submissionMapper.selectById(submissionId);
+        if (submission == null) {
+            return null;
+        }
+        return judgeFeedbackService.getFeedbackBySubmissionId(submissionId);
     }
 
     public PageVO<SubmissionVO> getSubmissionPage(PageDTO pageDTO, Long problemId, Long userId) {

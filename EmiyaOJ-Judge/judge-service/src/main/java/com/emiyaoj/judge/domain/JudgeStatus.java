@@ -19,4 +19,24 @@ public final class JudgeStatus {
 
     private JudgeStatus() {
     }
+
+    public static String describe(Integer status) {
+        if (status == null) {
+            return "UNKNOWN";
+        }
+        return switch (status) {
+            case PENDING -> "PENDING";
+            case JUDGING -> "JUDGING";
+            case ACCEPTED -> "ACCEPTED";
+            case COMPILE_ERROR -> "COMPILE_ERROR";
+            case SYSTEM_ERROR -> "SYSTEM_ERROR";
+            case WRONG_ANSWER -> "WRONG_ANSWER";
+            case TIME_LIMIT_EXCEEDED -> "TIME_LIMIT_EXCEEDED";
+            case MEMORY_LIMIT_EXCEEDED -> "MEMORY_LIMIT_EXCEEDED";
+            case RUNTIME_ERROR -> "RUNTIME_ERROR";
+            case OUTPUT_LIMIT_EXCEEDED -> "OUTPUT_LIMIT_EXCEEDED";
+            case PARTIAL_ACCEPTED -> "PARTIAL_ACCEPTED";
+            default -> "UNKNOWN";
+        };
+    }
 }

@@ -39,6 +39,8 @@ public class JudgeExecutor {
     private final SubmissionCaseResultMapper caseResultMapper;
     private final GoJudgeService goJudgeService;
     private final ProblemFeignClient problemFeignClient;
+    private final AgentTaskPublisher agentTaskPublisher;
+    private final JudgeFeedbackService judgeFeedbackService;
 
     /**
      * 异步执行判题。
@@ -61,14 +63,14 @@ public class JudgeExecutor {
         try {
             ResponseResult<LanguageVO> langResult = problemFeignClient.getLanguageById(languageId);
             if (langResult == null || langResult.getData() == null) {
-                updateSummary(submissionId, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "获取语言信息失败", null);
+                completeJudge(submission, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "获取语言信息失败", null);
                 return;
             }
             LanguageVO language = langResult.getData();
 
             ResponseResult<List<TestCaseVO>> testCaseResult = problemFeignClient.getTestCasesByProblemId(problemId);
             if (testCaseResult == null || testCaseResult.getData() == null || testCaseResult.getData().isEmpty()) {
-                updateSummary(submissionId, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "获取测试用例失败或无测试用例", null);
+                completeJudge(submission, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "获取测试用例失败或无测试用例", null);
                 return;
             }
             testCases = testCaseResult.getData();
@@ -82,7 +84,7 @@ public class JudgeExecutor {
                 GoJudgeResult compileResult = goJudgeService.compile(code, language);
                 if (compileResult != null && !GoJudgeStatus.ACCEPTED.getValue().equals(compileResult.getStatus())) {
                     String compileError = extractCompileError(compileResult);
-                    updateSummary(submissionId, testCases, caseResults, JudgeStatus.COMPILE_ERROR, null, compileError);
+                    completeJudge(submission, testCases, caseResults, JudgeStatus.COMPILE_ERROR, null, compileError);
                     return;
                 }
                 if (compileResult != null) {
@@ -98,6 +100,7 @@ public class JudgeExecutor {
                 TestCaseVO testCase = testCases.get(i);
                 GoJudgeResult runResult = goJudgeService.run(language, fileIds, code, testCase, timeLimit, memoryLimit);
                 SubmissionCaseResult caseResult = buildBaseCaseResult(submissionId, testCase, i + 1, runResult);
+                JudgeFeedbackHintBuilder.applyOutputHint(caseResult, testCase, runResult);
 
                 if (runResult == null) {
                     JudgeResultCalculator.CaseFailure failure = JudgeResultCalculator.mapExecutionFailure(null);
@@ -133,17 +136,27 @@ public class JudgeExecutor {
                 summary.setErrorMessage("Partial Accepted (" + summary.getPassedCaseCount() + "/" + summary.getTotalCaseCount() + ")");
                 updateSummaryById(summary);
             }
+            publishFeedbackTask(submission, summary);
 
             log.info("Judge complete: submissionId={}, score={}, passed={}/{}",
                     submissionId, summary.getScore(), summary.getPassedCaseCount(), summary.getTotalCaseCount());
         } catch (Exception e) {
             log.error("Judge failed for submission: {}", submissionId, e);
-            updateSummary(submissionId, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "系统错误: " + e.getMessage(), null);
+            completeJudge(submission, testCases, caseResults, JudgeStatus.SYSTEM_ERROR, "系统错误: " + e.getMessage(), null);
         } finally {
             if (fileIds != null) {
                 fileIds.values().forEach(goJudgeService::deleteFile);
             }
         }
+    }
+
+    private SubmissionJudgeResult completeJudge(Submission submission, List<TestCaseVO> testCases,
+                                                List<SubmissionCaseResult> caseResults, Integer forcedStatus,
+                                                String errorMessage, String compileMessage) {
+        SubmissionJudgeResult summary = updateSummary(
+                submission.getId(), testCases, caseResults, forcedStatus, errorMessage, compileMessage);
+        publishFeedbackTask(submission, summary);
+        return summary;
     }
 
     private SubmissionCaseResult buildBaseCaseResult(Long submissionId, TestCaseVO testCase, int caseOrder,
@@ -221,10 +234,19 @@ public class JudgeExecutor {
     }
 
     private boolean outputAccepted(GoJudgeResult runResult, TestCaseVO testCase) {
-        String actualOutput = runResult.getFiles() != null
-                ? runResult.getFiles().getOrDefault("stdout", "").trim()
-                : "";
+        String actualOutput = JudgeFeedbackHintBuilder.extractStdout(runResult).trim();
         String expectedOutput = testCase.getOutput() != null ? testCase.getOutput().trim() : "";
         return actualOutput.equals(expectedOutput);
+    }
+
+    private void publishFeedbackTask(Submission submission, SubmissionJudgeResult summary) {
+        boolean published = agentTaskPublisher.publishJudgeFeedbackTask(submission, summary);
+        if (!published) {
+            try {
+                judgeFeedbackService.saveStaticFallback(submission, summary, "Agent task publish failed");
+            } catch (Exception e) {
+                log.warn("Save static judge feedback failed, submissionId={}", submission.getId(), e);
+            }
+        }
     }
 }

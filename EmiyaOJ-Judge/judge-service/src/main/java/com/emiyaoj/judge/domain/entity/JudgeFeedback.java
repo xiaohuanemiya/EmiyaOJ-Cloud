@@ -10,41 +10,34 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 单个测试用例的判题明细结果。
+ * AI Agent feedback generated for a judge submission.
  */
 @Data
-@TableName("submission_case_result")
-public class SubmissionCaseResult {
+@TableName("judge_feedback")
+public class JudgeFeedback {
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
     private Long submissionId;
 
-    private Long testCaseId;
+    private String status;
 
-    private Integer caseOrder;
+    private String content;
 
-    private Integer status;
+    private String source;
 
-    private Integer score;
+    private String model;
 
-    private Long timeUsed;
+    private String agentType;
 
-    private Long memoryUsed;
+    private String traceId;
 
     private String errorMessage;
 
-    private Integer isSample;
-
-    private String inputPreview;
-
-    private String expectedOutputPreview;
-
-    private String actualOutputPreview;
-
-    private String outputDiffSummary;
-
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updateTime;
 }
