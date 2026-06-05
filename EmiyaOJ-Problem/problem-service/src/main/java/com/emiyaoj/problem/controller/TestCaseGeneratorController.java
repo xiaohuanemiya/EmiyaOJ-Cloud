@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -131,11 +130,9 @@ public class TestCaseGeneratorController {
                     description = "创建测试数据生成器描述。必须按描述规范说明输入输出、数据范围、边界场景和 stdout JSON 协议。",
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(name = "A+B 生成器描述示例", value = SPEC_REQUEST_EXAMPLE)))
-            @RequestBody TestCaseGeneratorSpecSaveDTO dto,
-            @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId,
-            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+            @RequestBody TestCaseGeneratorSpecSaveDTO dto) {
         return ResponseResult.success(testCaseGeneratorService.createTestCaseGeneratorSpec(
-                problemId, dto, userId, permissions));
+                problemId, dto));
     }
 
     @PutMapping("/{problemId}/spec")
@@ -146,19 +143,16 @@ public class TestCaseGeneratorController {
                     description = "更新测试数据生成器描述。描述必须包含规范中的输入输出、数据范围、边界场景和 stdout JSON 协议。",
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(name = "A+B 生成器描述示例", value = SPEC_REQUEST_EXAMPLE)))
-            @RequestBody TestCaseGeneratorSpecSaveDTO dto,
-            @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId,
-            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+            @RequestBody TestCaseGeneratorSpecSaveDTO dto) {
         return ResponseResult.success(testCaseGeneratorService.updateTestCaseGeneratorSpec(
-                problemId, dto, userId, permissions));
+                problemId, dto));
     }
 
     @GetMapping("/{problemId}/spec")
     @Operation(summary = "Get test case generator spec")
     public ResponseResult<TestCaseGeneratorSpecVO> getTestCaseGeneratorSpec(
-            @PathVariable Long problemId,
-            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
-        TestCaseGeneratorSpecVO vo = testCaseGeneratorService.getTestCaseGeneratorSpec(problemId, permissions);
+            @PathVariable Long problemId) {
+        TestCaseGeneratorSpecVO vo = testCaseGeneratorService.getTestCaseGeneratorSpec(problemId);
         if (vo == null) {
             return ResponseResult.fail(404, "Test case generator does not exist");
         }
@@ -168,9 +162,8 @@ public class TestCaseGeneratorController {
     @GetMapping("/{problemId}")
     @Operation(summary = "Get test case generator")
     public ResponseResult<TestCaseGeneratorVO> getTestCaseGenerator(
-            @PathVariable Long problemId,
-            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
-        TestCaseGeneratorVO vo = testCaseGeneratorService.getTestCaseGenerator(problemId, permissions);
+            @PathVariable Long problemId) {
+        TestCaseGeneratorVO vo = testCaseGeneratorService.getTestCaseGenerator(problemId);
         if (vo == null) {
             return ResponseResult.fail(404, "Test case generator does not exist");
         }
@@ -188,11 +181,9 @@ public class TestCaseGeneratorController {
                                     @ExampleObject(name = "标准 Python 脚本框架", value = GENERATOR_CODE_FRAMEWORK_REQUEST_EXAMPLE),
                                     @ExampleObject(name = "A+B Python 生成器脚本示例", value = GENERATOR_CODE_REQUEST_EXAMPLE)
                             }))
-            @RequestBody TestCaseGeneratorUpdateDTO dto,
-            @Parameter(hidden = true) @RequestHeader("X-User-Id") Long userId,
-            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
+            @RequestBody TestCaseGeneratorUpdateDTO dto) {
         return ResponseResult.success(testCaseGeneratorService.updateTestCaseGenerator(
-                problemId, dto, userId, permissions));
+                problemId, dto));
     }
 
     @PostMapping("/{problemId}/run")
@@ -204,8 +195,7 @@ public class TestCaseGeneratorController {
                     description = "运行生成器并保存测试用例。saveMode 默认为 APPEND，可传 REPLACE 替换旧用例。",
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(name = "追加保存", value = RUN_REQUEST_EXAMPLE)))
-            @RequestBody(required = false) RunTestCaseGeneratorDTO dto,
-            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String permissions) {
-        return ResponseResult.success(testCaseGeneratorService.runTestCaseGenerator(problemId, dto, permissions));
+            @RequestBody(required = false) RunTestCaseGeneratorDTO dto) {
+        return ResponseResult.success(testCaseGeneratorService.runTestCaseGenerator(problemId, dto));
     }
 }

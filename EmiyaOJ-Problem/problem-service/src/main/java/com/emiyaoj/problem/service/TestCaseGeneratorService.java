@@ -34,7 +34,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,9 +43,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequiredArgsConstructor
 public class TestCaseGeneratorService extends ServiceImpl<TestCaseGeneratorMapper, TestCaseGenerator> {
 
-    private static final String PERMISSION_LIST = "TESTCASE.LIST";
-    private static final String PERMISSION_EDIT = "TESTCASE.EDIT";
-    private static final String PERMISSION_ADD = "TESTCASE.ADD";
     private static final String SAVE_MODE_APPEND = "APPEND";
     private static final String SAVE_MODE_REPLACE = "REPLACE";
 
@@ -62,9 +58,7 @@ public class TestCaseGeneratorService extends ServiceImpl<TestCaseGeneratorMappe
     @Value("${test-case-generator.max-generated-cases:1000}")
     private int maxGeneratedCases;
 
-    public TestCaseGeneratorSpecVO createTestCaseGeneratorSpec(Long problemId, TestCaseGeneratorSpecSaveDTO dto,
-                                                               Long userId, String permissions) {
-        requirePermission(permissions, PERMISSION_EDIT);
+    public TestCaseGeneratorSpecVO createTestCaseGeneratorSpec(Long problemId, TestCaseGeneratorSpecSaveDTO dto) {
         requireProblem(problemId);
         validateSpec(dto);
         if (selectByProblemId(problemId) != null) {
@@ -76,57 +70,49 @@ public class TestCaseGeneratorService extends ServiceImpl<TestCaseGeneratorMappe
         generator.setProblemId(problemId);
         generator.setSpec(dto.getSpec());
         generator.setDeleted(0);
-        generator.setCreateBy(userId);
-        generator.setUpdateBy(userId);
+        generator.setCreateBy(0L);
+        generator.setUpdateBy(0L);
         generator.setCreateTime(now);
         generator.setUpdateTime(now);
         this.save(generator);
         return toSpecVO(generator);
     }
 
-    public TestCaseGeneratorSpecVO updateTestCaseGeneratorSpec(Long problemId, TestCaseGeneratorSpecSaveDTO dto,
-                                                               Long userId, String permissions) {
-        requirePermission(permissions, PERMISSION_EDIT);
+    public TestCaseGeneratorSpecVO updateTestCaseGeneratorSpec(Long problemId, TestCaseGeneratorSpecSaveDTO dto) {
         requireProblem(problemId);
         validateSpec(dto);
         TestCaseGenerator generator = requireGenerator(problemId);
         generator.setSpec(dto.getSpec());
-        generator.setUpdateBy(userId);
+        generator.setUpdateBy(0L);
         generator.setUpdateTime(LocalDateTime.now());
         this.updateById(generator);
         return toSpecVO(generator);
     }
 
-    public TestCaseGeneratorSpecVO getTestCaseGeneratorSpec(Long problemId, String permissions) {
-        requirePermission(permissions, PERMISSION_LIST);
+    public TestCaseGeneratorSpecVO getTestCaseGeneratorSpec(Long problemId) {
         requireProblem(problemId);
         TestCaseGenerator generator = selectByProblemId(problemId);
         return generator == null ? null : toSpecVO(generator);
     }
 
-    public TestCaseGeneratorVO getTestCaseGenerator(Long problemId, String permissions) {
-        requirePermission(permissions, PERMISSION_LIST);
+    public TestCaseGeneratorVO getTestCaseGenerator(Long problemId) {
         requireProblem(problemId);
         TestCaseGenerator generator = selectByProblemId(problemId);
         return generator == null ? null : toVO(generator);
     }
 
-    public TestCaseGeneratorVO updateTestCaseGenerator(Long problemId, TestCaseGeneratorUpdateDTO dto,
-                                                       Long userId, String permissions) {
-        requirePermission(permissions, PERMISSION_EDIT);
+    public TestCaseGeneratorVO updateTestCaseGenerator(Long problemId, TestCaseGeneratorUpdateDTO dto) {
         requireProblem(problemId);
         validateGeneratorCode(dto);
         TestCaseGenerator generator = requireGenerator(problemId);
         generator.setGeneratorCode(dto.getGeneratorCode());
-        generator.setUpdateBy(userId);
+        generator.setUpdateBy(0L);
         generator.setUpdateTime(LocalDateTime.now());
         this.updateById(generator);
         return toVO(generator);
     }
 
-    public RunTestCaseGeneratorVO runTestCaseGenerator(Long problemId, RunTestCaseGeneratorDTO dto,
-                                                       String permissions) {
-        requirePermission(permissions, PERMISSION_ADD);
+    public RunTestCaseGeneratorVO runTestCaseGenerator(Long problemId, RunTestCaseGeneratorDTO dto) {
         requireProblem(problemId);
         String saveMode = normalizeSaveMode(dto);
         TestCaseGenerator generator = requireGenerator(problemId);
@@ -265,14 +251,6 @@ public class TestCaseGeneratorService extends ServiceImpl<TestCaseGeneratorMappe
     private void validateGeneratorCode(TestCaseGeneratorUpdateDTO dto) {
         if (dto == null || !StringUtils.hasText(dto.getGeneratorCode())) {
             throw new BadRequestException("Test case generator code cannot be empty");
-        }
-    }
-
-    private void requirePermission(String permissions, String requiredPermission) {
-        if (!StringUtils.hasText(permissions) || Arrays.stream(permissions.split(","))
-                .map(String::trim)
-                .noneMatch(requiredPermission::equals)) {
-            throw new BaseException(403, "Missing permission: " + requiredPermission);
         }
     }
 

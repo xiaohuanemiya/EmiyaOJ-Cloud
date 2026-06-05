@@ -3,7 +3,6 @@ package com.emiyaoj.problem.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.emiyaoj.common.domain.ResponseResult;
 import com.emiyaoj.common.exception.BadRequestException;
-import com.emiyaoj.common.exception.BaseException;
 import com.emiyaoj.judge.api.TestCaseGeneratorJudgeFeignClient;
 import com.emiyaoj.judge.dto.TestCaseGeneratorRunRequestDTO;
 import com.emiyaoj.judge.dto.TestCaseGeneratorRunResultVO;
@@ -41,10 +40,6 @@ import static org.mockito.Mockito.when;
 
 class TestCaseGeneratorServiceTest {
 
-    private static final String LIST_PERMISSION = "TESTCASE.LIST";
-    private static final String EDIT_PERMISSION = "TESTCASE.EDIT";
-    private static final String ADD_PERMISSION = "TESTCASE.ADD";
-
     private TestCaseGeneratorMapper generatorMapper;
     private ProblemMapper problemMapper;
     private TestCaseMapper testCaseMapper;
@@ -78,7 +73,7 @@ class TestCaseGeneratorServiceTest {
         TestCaseGeneratorSpecSaveDTO dto = new TestCaseGeneratorSpecSaveDTO();
         dto.setSpec("Generate A+B cases");
 
-        TestCaseGeneratorSpecVO vo = service.createTestCaseGeneratorSpec(1L, dto, 10L, EDIT_PERMISSION);
+        TestCaseGeneratorSpecVO vo = service.createTestCaseGeneratorSpec(1L, dto);
 
         assertEquals(1L, vo.getProblemId());
         assertEquals("Generate A+B cases", vo.getSpec());
@@ -95,15 +90,7 @@ class TestCaseGeneratorServiceTest {
         dto.setSpec("Spec");
 
         assertThrows(BadRequestException.class,
-                () -> service.createTestCaseGeneratorSpec(1L, dto, 10L, EDIT_PERMISSION));
-    }
-
-    @Test
-    void getSpecRejectsMissingPermission() {
-        BaseException exception = assertThrows(BaseException.class,
-                () -> service.getTestCaseGeneratorSpec(1L, LIST_PERMISSION.replace("LIST", "ADD")));
-
-        assertEquals(403, exception.getCode());
+                () -> service.createTestCaseGeneratorSpec(1L, dto));
     }
 
     @Test
@@ -120,7 +107,7 @@ class TestCaseGeneratorServiceTest {
         when(testCaseMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(existing));
         when(testCaseMapper.insert(any(TestCase.class))).thenReturn(1);
 
-        RunTestCaseGeneratorVO vo = service.runTestCaseGenerator(1L, new RunTestCaseGeneratorDTO(), ADD_PERMISSION);
+        RunTestCaseGeneratorVO vo = service.runTestCaseGenerator(1L, new RunTestCaseGeneratorDTO());
 
         assertEquals("APPEND", vo.getSaveMode());
         assertEquals(2, vo.getSavedCount());
@@ -142,7 +129,7 @@ class TestCaseGeneratorServiceTest {
         RunTestCaseGeneratorDTO dto = new RunTestCaseGeneratorDTO();
         dto.setSaveMode("REPLACE");
 
-        RunTestCaseGeneratorVO vo = service.runTestCaseGenerator(1L, dto, ADD_PERMISSION);
+        RunTestCaseGeneratorVO vo = service.runTestCaseGenerator(1L, dto);
 
         assertEquals("REPLACE", vo.getSaveMode());
         verify(testCaseMapper).delete(any(LambdaQueryWrapper.class));
@@ -161,7 +148,7 @@ class TestCaseGeneratorServiceTest {
         when(testCaseMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
         when(testCaseMapper.insert(any(TestCase.class))).thenReturn(1);
 
-        RunTestCaseGeneratorVO vo = service.runTestCaseGenerator(1L, new RunTestCaseGeneratorDTO(), ADD_PERMISSION);
+        RunTestCaseGeneratorVO vo = service.runTestCaseGenerator(1L, new RunTestCaseGeneratorDTO());
 
         assertEquals(2, vo.getSavedCount());
         ArgumentCaptor<TestCase> captor = ArgumentCaptor.forClass(TestCase.class);
@@ -183,7 +170,7 @@ class TestCaseGeneratorServiceTest {
                 .thenReturn(ResponseResult.success(successRun("not-json")));
 
         assertThrows(BadRequestException.class,
-                () -> service.runTestCaseGenerator(1L, new RunTestCaseGeneratorDTO(), ADD_PERMISSION));
+                () -> service.runTestCaseGenerator(1L, new RunTestCaseGeneratorDTO()));
         verify(testCaseMapper, never()).insert(any(TestCase.class));
     }
 
