@@ -1,0 +1,360 @@
+@startuml EmiyaOJ_UML20_Analysis_Class
+
+' EmiyaOJ-Cloud UML 2.0 分析级类图
+' 约束：每个核心用例族仅建模 1 个边界类、1 个控制类、至少 1 个实体类。
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam roundcorner 8
+skinparam classBackgroundColor #FEFEFE
+skinparam classBorderColor #455A64
+skinparam classBackgroundColor<<boundary>> #E3F2FD
+skinparam classBorderColor<<boundary>> #1565C0
+skinparam classBackgroundColor<<control>> #FFF3E0
+skinparam classBorderColor<<control>> #EF6C00
+skinparam classBackgroundColor<<entity>> #E8F5E9
+skinparam classBorderColor<<entity>> #2E7D32
+
+title EmiyaOJ-Cloud UML2.0 分析级类图
+
+legend right
+  <b>建模说明</b>
+  每个包代表一个必要的核心用例族。
+  每个用例族只放置一个边界类和一个控制类。
+  实体类保留业务判断必须依赖的领域对象。
+endlegend
+
+package "UC01 用户认证与授权访问" #EEF7FF {
+  class "认证边界" as AuthBoundary <<boundary>> {
+    + register()
+    + login()
+    + logout()
+    + verifyToken()
+  }
+
+  class "认证控制" as AuthControl <<control>> {
+    + authenticate()
+    + issueToken()
+    + revokeToken()
+    + loadPermissions()
+  }
+
+  class "用户" as User <<entity>> {
+    id
+    username
+    passwordHash
+    status
+  }
+
+  class "角色" as Role <<entity>> {
+    id
+    roleCode
+    roleName
+  }
+
+  class "权限" as Permission <<entity>> {
+    id
+    permissionCode
+    permissionType
+  }
+
+  AuthBoundary --> AuthControl : 提交认证请求
+  AuthControl --> User : 校验账号
+  AuthControl --> Role : 装载角色
+  AuthControl --> Permission : 装载权限
+  User "*" -- "*" Role : 分配
+  Role "*" -- "*" Permission : 授权
+}
+
+package "UC02 题目浏览与管理" #F4FFF1 {
+  class "题目边界" as ProblemBoundary <<boundary>> {
+    + listProblems()
+    + viewProblem()
+    + saveProblem()
+    + maintainTestCases()
+  }
+
+  class "题目控制" as ProblemControl <<control>> {
+    + queryProblem()
+    + maintainProblem()
+    + maintainLanguage()
+    + maintainTags()
+  }
+
+  class "题目" as Problem <<entity>> {
+    id
+    title
+    difficulty
+    timeLimit
+    memoryLimit
+    status
+  }
+
+  class "测试用例" as TestCase <<entity>> {
+    id
+    input
+    output
+    score
+    sortOrder
+  }
+
+  class "编程语言" as Language <<entity>> {
+    id
+    name
+    compileCommand
+    runCommand
+    status
+  }
+
+  class "题目标签" as Tag <<entity>> {
+    id
+    name
+    color
+  }
+
+  ProblemBoundary --> ProblemControl : 题目维护请求
+  ProblemControl --> Problem : 创建/查询/更新
+  ProblemControl --> TestCase : 维护用例
+  ProblemControl --> Language : 维护语言
+  ProblemControl --> Tag : 维护标签
+  Problem "1" -- "1..*" TestCase : 包含
+  Problem "*" -- "*" Tag : 标注
+}
+
+package "UC03 代码提交与自动判题" #FFF8E8 {
+  class "判题边界" as JudgeBoundary <<boundary>> {
+    + submitCode()
+    + viewSubmission()
+    + viewResult()
+  }
+
+  class "判题控制" as JudgeControl <<control>> {
+    + createSubmission()
+    + validateSubmission()
+    + executeJudge()
+    + summarizeResult()
+  }
+
+  class "提交记录" as Submission <<entity>> {
+    id
+    userId
+    problemId
+    languageId
+    code
+    createTime
+  }
+
+  class "判题汇总结果" as JudgeResult <<entity>> {
+    status
+    score
+    passedCaseCount
+    totalCaseCount
+    finishTime
+  }
+
+  class "用例运行结果" as CaseResult <<entity>> {
+    testCaseId
+    status
+    timeUsed
+    memoryUsed
+    errorMessage
+  }
+
+  JudgeBoundary --> JudgeControl : 提交/查询
+  JudgeControl --> Submission : 生成提交
+  JudgeControl --> Problem : 校验题目
+  JudgeControl --> Language : 选择语言
+  JudgeControl --> TestCase : 逐个运行
+  Submission "1" -- "1" JudgeResult : 汇总
+  Submission "1" -- "0..*" CaseResult : 明细
+}
+
+package "UC04 竞赛报名与排行" #F7F2FF {
+  class "竞赛边界" as ContestBoundary <<boundary>> {
+    + listContests()
+    + registerContest()
+    + manageContest()
+    + viewRank()
+  }
+
+  class "竞赛控制" as ContestControl <<control>> {
+    + checkRegistration()
+    + maintainContest()
+    + checkSubmit()
+    + calculateRank()
+  }
+
+  class "竞赛" as Contest <<entity>> {
+    id
+    title
+    ruleType
+    startTime
+    endTime
+    inviteCode
+    status
+  }
+
+  class "竞赛题目" as ContestProblem <<entity>> {
+    id
+    contestId
+    problemId
+    label
+    score
+  }
+
+  class "竞赛报名" as ContestRegistration <<entity>> {
+    contestId
+    userId
+    createTime
+  }
+
+  class "竞赛管理员" as ContestAdmin <<entity>> {
+    contestId
+    userId
+  }
+
+  ContestBoundary --> ContestControl : 竞赛请求
+  ContestControl --> Contest : 维护竞赛
+  ContestControl --> ContestProblem : 配置题目
+  ContestControl --> ContestRegistration : 报名校验
+  ContestControl --> ContestAdmin : 管理授权
+  ContestControl ..> Submission : 读取提交排行
+  Contest "1" -- "1..*" ContestProblem : 设置
+  Contest "1" -- "0..*" ContestRegistration : 接收报名
+  Contest "1" -- "1..*" ContestAdmin : 管理
+  ContestProblem "*" -- "1" Problem : 引用题目
+}
+
+package "UC05 博客题解与互动" #FFF0F6 {
+  class "博客边界" as BlogBoundary <<boundary>> {
+    + publishBlog()
+    + viewBlog()
+    + comment()
+    + likeOrStar()
+  }
+
+  class "博客控制" as BlogControl <<control>> {
+    + maintainBlog()
+    + maintainComment()
+    + recordInteraction()
+    + submitAuditTask()
+  }
+
+  class "博客" as Blog <<entity>> {
+    id
+    userId
+    title
+    content
+    blogType
+    auditStatus
+  }
+
+  class "博客评论" as BlogComment <<entity>> {
+    id
+    blogId
+    userId
+    content
+    auditStatus
+  }
+
+  class "博客标签" as BlogTag <<entity>> {
+    id
+    name
+    desc
+  }
+
+  class "博客点赞" as BlogLike <<entity>> {
+    blogId
+    userId
+  }
+
+  class "博客收藏" as BlogStar <<entity>> {
+    blogId
+    userId
+  }
+
+  BlogBoundary --> BlogControl : 博客互动请求
+  BlogControl --> Blog : 发布/编辑/查询
+  BlogControl --> BlogComment : 评论
+  BlogControl --> BlogLike : 点赞
+  BlogControl --> BlogStar : 收藏
+  BlogControl --> BlogTag : 打标签
+  Blog ..> Problem : 题解关联
+  Blog "1" -- "0..*" BlogComment : 评论
+  Blog "*" -- "*" BlogTag : 分类
+  Blog "1" -- "0..*" BlogLike : 点赞记录
+  Blog "1" -- "0..*" BlogStar : 收藏记录
+}
+
+package "UC06 内容审核" #FFF9EC {
+  class "审核边界" as ModerationBoundary <<boundary>> {
+    + receiveAuditTask()
+    + manualReview()
+    + callbackResult()
+  }
+
+  class "审核控制" as ModerationControl <<control>> {
+    + scanText()
+    + decideAuditStatus()
+    + retryCallback()
+    + applyManualStatus()
+  }
+
+  class "审核任务" as ModerationTask <<entity>> {
+    taskId
+    targetType
+    targetId
+    title
+    content
+  }
+
+  class "审核结果" as ModerationResult <<entity>> {
+    taskId
+    auditStatus
+    suggestion
+    labels
+    reason
+  }
+
+  ModerationBoundary --> ModerationControl : 自动/人工审核
+  ModerationControl --> ModerationTask : 消费任务
+  ModerationControl --> ModerationResult : 生成结果
+  ModerationTask ..> Blog : 审核博客
+  ModerationTask ..> BlogComment : 审核评论
+  ModerationResult ..> Blog : 回写状态
+  ModerationResult ..> BlogComment : 回写状态
+}
+
+package "UC07 AI 编程助手" #EEF8F7 {
+  class "聊天边界" as ChatBoundary <<boundary>> {
+    + sendMessage()
+  }
+
+  class "聊天控制" as ChatControl <<control>> {
+    + buildPrompt()
+    + requestModel()
+    + parseReply()
+  }
+
+  class "聊天消息" as ChatMessage <<entity>> {
+    role
+    content
+    createdAt
+  }
+
+  class "聊天请求" as ChatRequest <<entity>> {
+    message
+    history
+  }
+
+  ChatBoundary --> ChatControl : 发送消息
+  ChatControl --> ChatRequest : 读取上下文
+  ChatControl --> ChatMessage : 组织历史消息
+  ChatRequest "1" -- "0..*" ChatMessage : 包含历史
+}
+
+@enduml

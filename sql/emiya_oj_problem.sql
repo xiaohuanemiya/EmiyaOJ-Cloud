@@ -98,8 +98,8 @@ DROP TABLE IF EXISTS `test_case`;
 CREATE TABLE `test_case` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '测试用例ID',
   `problem_id` bigint NOT NULL COMMENT '题目ID',
-  `input` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '输入数据',
-  `output` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '预期输出',
+  `input` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '输入数据',
+  `output` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '预期输出',
   `is_sample` tinyint DEFAULT '0' COMMENT '是否为样例：0-否，1-是',
   `score` int DEFAULT '0' COMMENT '分值',
   `sort_order` int DEFAULT '0' COMMENT '排序',
@@ -117,6 +117,29 @@ LOCK TABLES `test_case` WRITE;
 /*!40000 ALTER TABLE `test_case` DISABLE KEYS */;
 INSERT INTO `test_case` VALUES (1,1,'1 2','3',0,0,0,0,'2026-04-15 18:00:25','2026-04-22 06:27:30'),(3,1,'4 5','9',1,10,1,0,'2026-04-22 06:27:53','2026-04-22 06:27:53');
 /*!40000 ALTER TABLE `test_case` ENABLE KEYS */;
+UNLOCK TABLES;
+DROP TABLE IF EXISTS `test_case_generator`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `test_case_generator` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '测试用例生成器ID',
+  `problem_id` bigint NOT NULL COMMENT '题目ID',
+  `spec` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '测试数据生成器描述',
+  `generator_code` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Python测试数据生成器脚本',
+  `deleted` tinyint DEFAULT '0' COMMENT '是否删除：0-未删除，1-已删除',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_problem_id` (`problem_id`) USING BTREE,
+  KEY `idx_deleted` (`deleted`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='测试用例生成器表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `test_case_generator` WRITE;
+/*!40000 ALTER TABLE `test_case_generator` DISABLE KEYS */;
+/*!40000 ALTER TABLE `test_case_generator` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

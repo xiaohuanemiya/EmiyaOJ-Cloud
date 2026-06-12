@@ -35,6 +35,16 @@ public class SubmissionCaseResult {
 
     private String errorMessage;
 
+    private Integer isSample;
+
+    private String inputPreview;
+
+    private String expectedOutputPreview;
+
+    private String actualOutputPreview;
+
+    private String outputDiffSummary;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 }

@@ -2,6 +2,9 @@
 
 本文档记录判题提交与查询接口。统一响应体为 `ResponseResult<T>`：
 
+> 智能判题反馈相关新增接口、字段与前端接入流程请参阅：
+> [Judge-Feedback-Frontend-API-Changes.md](./Judge-Feedback-Frontend-API-Changes.md)
+
 ```json
 {
   "code": 200,

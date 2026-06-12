@@ -3,6 +3,7 @@ package com.emiyaoj.judge.controller;
 import com.emiyaoj.common.domain.PageDTO;
 import com.emiyaoj.common.domain.PageVO;
 import com.emiyaoj.common.domain.ResponseResult;
+import com.emiyaoj.judge.dto.JudgeFeedbackVO;
 import com.emiyaoj.judge.dto.JudgeUserStatsVO;
 import com.emiyaoj.judge.dto.SolvedProblemVO;
 import com.emiyaoj.judge.dto.SubmissionDetailVO;
@@ -38,6 +39,14 @@ public class SubmissionController {
             return ResponseResult.fail(404, "Submission does not exist");
         }
         return ResponseResult.success(vo);
+    }
+
+    @Operation(summary = "Get submission AI feedback")
+    @GetMapping("/{id}/feedback")
+    public ResponseResult<JudgeFeedbackVO> getSubmissionFeedback(
+            @Parameter(description = "Submission ID") @PathVariable Long id) {
+        JudgeFeedbackVO feedback = submissionService.getFeedbackBySubmissionId(id);
+        return ResponseResult.success(feedback);
     }
 
     @Operation(summary = "Query submissions")

@@ -1,0 +1,13 @@
+.git
+.idea
+.vscode
+.codex
+.agents
+**/target
+**/.pytest_cache
+**/__pycache__
+**/.venv
+**/node_modules
+out
+.env
+*.log
