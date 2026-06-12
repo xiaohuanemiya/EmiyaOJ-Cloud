@@ -35,6 +35,10 @@ build/
 ### VS Code ###
 .vscode/
 
+# Environment / secrets
+.env
+!.env.example
+
 ### Python / uv ###
 __pycache__/
 *.py[cod]
