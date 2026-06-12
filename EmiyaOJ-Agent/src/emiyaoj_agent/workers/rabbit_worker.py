@@ -62,7 +62,7 @@ class RabbitAgentWorker:
             host=self._settings.rabbitmq_host,
             port=self._settings.rabbitmq_port,
             credentials=credentials,
-            heartbeat=60,
+            heartbeat=self._settings.rabbitmq_heartbeat_seconds,
             blocked_connection_timeout=30,
         )
 

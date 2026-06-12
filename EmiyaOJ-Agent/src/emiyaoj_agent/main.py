@@ -13,6 +13,18 @@ def main() -> None:
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
     settings = load_settings()
+    logger = logging.getLogger(__name__)
+    if settings.llm_api_key:
+        logger.info(
+            "Judge feedback LLM is enabled, model=%s, readTimeoutSeconds=%s",
+            settings.judge_feedback_model,
+            settings.judge_feedback_timeout_seconds,
+        )
+    else:
+        logger.warning(
+            "Judge feedback DeepSeek LLM is disabled because no API key is configured; "
+            "set DEEPSEEK_API_KEY, JUDGE_FEEDBACK_API_KEY, or CHAT_API_KEY"
+        )
     registry = build_registry(settings)
     RabbitAgentWorker(settings, registry).run()
 

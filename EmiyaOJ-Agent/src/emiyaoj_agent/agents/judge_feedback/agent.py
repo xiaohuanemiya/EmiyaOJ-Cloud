@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import logging
 
-from emiyaoj_agent.agents.judge_feedback.prompts import build_messages, static_fallback
+from emiyaoj_agent.agents.judge_feedback.prompts import (
+    build_messages,
+    remove_fenced_code_blocks,
+)
 from emiyaoj_agent.core.models import AgentResult, AgentTask, LLMOptions
 from emiyaoj_agent.llm.base import LLMClient
 from emiyaoj_agent.tools.judge_client import JudgeClient
@@ -18,8 +21,8 @@ class JudgeFeedbackAgent:
         judge_client: JudgeClient,
         llm_client: LLMClient,
         model: str,
-        timeout_seconds: float = 15.0,
-        max_tokens: int = 1200,
+        timeout_seconds: float = 120.0,
+        max_tokens: int = 16384,
     ) -> None:
         self._judge_client = judge_client
         self._llm_client = llm_client
@@ -42,6 +45,9 @@ class JudgeFeedbackAgent:
                     timeout_seconds=self._timeout_seconds,
                 ),
             )
+            content = remove_fenced_code_blocks(content)
+            if not content:
+                raise ValueError("Judge feedback LLM response is empty after removing code blocks")
             result = AgentResult(
                 submissionId=task.submission_id,
                 agentType=self.agent_type,
@@ -61,9 +67,9 @@ class JudgeFeedbackAgent:
             result = AgentResult(
                 submissionId=task.submission_id,
                 agentType=self.agent_type,
-                status="STATIC_FALLBACK",
-                content=static_fallback(context),
-                source="STATIC_FALLBACK",
+                status="NO_OUTPUT",
+                content=None,
+                source="LLM",
                 model=self._model,
                 traceId=task.trace_id,
                 errorMessage=str(exc),

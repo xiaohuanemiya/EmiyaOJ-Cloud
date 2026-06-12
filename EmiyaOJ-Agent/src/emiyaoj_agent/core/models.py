@@ -21,8 +21,8 @@ class AgentResult(BaseModel):
     submission_id: int = Field(alias="submissionId")
     agent_type: str = Field(alias="agentType")
     status: str
-    content: str
-    source: str
+    content: str | None = None
+    source: str | None = None
     model: str | None = None
     trace_id: str | None = Field(default=None, alias="traceId")
     error_message: str | None = Field(default=None, alias="errorMessage")
@@ -34,5 +34,5 @@ class AgentResult(BaseModel):
 class LLMOptions(BaseModel):
     model: str
     temperature: float = 0.3
-    max_tokens: int = 1200
-    timeout_seconds: float = 15.0
+    max_tokens: int = 16384
+    timeout_seconds: float = Field(default=120.0, gt=0)

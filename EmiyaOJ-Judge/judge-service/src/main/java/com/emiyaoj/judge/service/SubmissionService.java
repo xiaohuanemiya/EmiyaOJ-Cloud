@@ -123,16 +123,16 @@ public class SubmissionService {
         SubmissionDetailVO vo = new SubmissionDetailVO();
         BeanUtils.copyProperties(toSubmissionVO(submission, judgeResult), vo);
         vo.setCaseResults(caseResults.stream().map(this::toCaseResultVO).toList());
-        vo.setFeedback(judgeFeedbackService.getFeedbackBySubmissionId(id));
+        vo.setFeedback(judgeFeedbackService.getOrRequestFeedback(id));
         return vo;
     }
 
     public JudgeFeedbackVO getFeedbackBySubmissionId(Long submissionId) {
         Submission submission = submissionMapper.selectById(submissionId);
         if (submission == null) {
-            return null;
+            throw new BaseException(404, "Submission does not exist");
         }
-        return judgeFeedbackService.getFeedbackBySubmissionId(submissionId);
+        return judgeFeedbackService.getOrRequestFeedback(submissionId);
     }
 
     public PageVO<SubmissionVO> getSubmissionPage(PageDTO pageDTO, Long problemId, Long userId) {

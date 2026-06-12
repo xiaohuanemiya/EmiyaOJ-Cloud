@@ -39,7 +39,6 @@ public class JudgeExecutor {
     private final SubmissionCaseResultMapper caseResultMapper;
     private final GoJudgeService goJudgeService;
     private final ProblemFeignClient problemFeignClient;
-    private final AgentTaskPublisher agentTaskPublisher;
     private final JudgeFeedbackService judgeFeedbackService;
 
     /**
@@ -240,13 +239,10 @@ public class JudgeExecutor {
     }
 
     private void publishFeedbackTask(Submission submission, SubmissionJudgeResult summary) {
-        boolean published = agentTaskPublisher.publishJudgeFeedbackTask(submission, summary);
-        if (!published) {
-            try {
-                judgeFeedbackService.saveStaticFallback(submission, summary, "Agent task publish failed");
-            } catch (Exception e) {
-                log.warn("Save static judge feedback failed, submissionId={}", submission.getId(), e);
-            }
+        try {
+            judgeFeedbackService.requestFeedback(submission, summary);
+        } catch (Exception e) {
+            log.warn("Request judge feedback failed, submissionId={}", submission.getId(), e);
         }
     }
 }

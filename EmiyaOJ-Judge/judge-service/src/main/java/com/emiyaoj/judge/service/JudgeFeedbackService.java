@@ -23,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,10 +43,51 @@ public class JudgeFeedbackService {
     private final SubmissionJudgeResultMapper judgeResultMapper;
     private final SubmissionCaseResultMapper caseResultMapper;
     private final ProblemFeignClient problemFeignClient;
+    private final AgentTaskPublisher agentTaskPublisher;
 
     public JudgeFeedbackVO getFeedbackBySubmissionId(Long submissionId) {
         JudgeFeedback feedback = selectBySubmissionId(submissionId);
         return toVO(feedback);
+    }
+
+    /**
+     * Returns existing feedback or lazily requests it for a completed non-AC submission.
+     * The PENDING row acts as an idempotency lock, so frontend polling does not publish duplicate tasks.
+     */
+    public JudgeFeedbackVO getOrRequestFeedback(Long submissionId) {
+        JudgeFeedback feedback = selectBySubmissionId(submissionId);
+        if (feedback != null) {
+            return toVO(feedback);
+        }
+
+        Submission submission = submissionMapper.selectById(submissionId);
+        SubmissionJudgeResult judgeResult = selectJudgeResult(submissionId);
+        if (!feedbackEligible(submission, judgeResult)) {
+            return null;
+        }
+
+        requestFeedback(submission, judgeResult);
+        return getFeedbackBySubmissionId(submissionId);
+    }
+
+    /**
+     * Idempotently creates a PENDING feedback record and publishes the Agent task.
+     */
+    public void requestFeedback(Submission submission, SubmissionJudgeResult judgeResult) {
+        if (!feedbackEligible(submission, judgeResult)) {
+            return;
+        }
+
+        int inserted = judgeFeedbackMapper.insertPendingIfAbsent(
+                submission.getId(), AgentRabbitConstants.AGENT_TYPE_JUDGE_FEEDBACK);
+        if (inserted == 0) {
+            return;
+        }
+
+        boolean published = agentTaskPublisher.publishJudgeFeedbackTask(submission, judgeResult);
+        if (!published) {
+            saveNoOutput(submission, "Agent task publish failed");
+        }
     }
 
     public JudgeFeedbackContextVO buildContext(Long submissionId) {
@@ -109,16 +151,15 @@ public class JudgeFeedbackService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void saveStaticFallback(Submission submission, SubmissionJudgeResult judgeResult, String reason) {
-        if (submission == null || submission.getId() == null || judgeResult == null) {
+    public void saveNoOutput(Submission submission, String reason) {
+        if (submission == null || submission.getId() == null) {
             return;
         }
         JudgeFeedbackCallbackDTO callback = JudgeFeedbackCallbackDTO.builder()
                 .submissionId(submission.getId())
                 .agentType(AgentRabbitConstants.AGENT_TYPE_JUDGE_FEEDBACK)
-                .status("STATIC_FALLBACK")
-                .source("STATIC_FALLBACK")
-                .content(staticFallbackContent(judgeResult))
+                .status("NO_OUTPUT")
+                .source("AGENT")
                 .errorMessage(reason)
                 .build();
         applyCallback(callback);
@@ -236,19 +277,6 @@ public class JudgeFeedbackService {
         feedback.setErrorMessage(callback.getErrorMessage());
     }
 
-    private String staticFallbackContent(SubmissionJudgeResult judgeResult) {
-        String statusText = JudgeStatus.describe(judgeResult.getStatus());
-        return switch (judgeResult.getStatus()) {
-            case JudgeStatus.COMPILE_ERROR -> "编译没有通过。请优先阅读编译信息，检查语法、类名/文件名、头文件或库函数使用是否正确。";
-            case JudgeStatus.WRONG_ANSWER, JudgeStatus.PARTIAL_ACCEPTED -> "判题结果为 " + statusText
-                    + "。建议先用题目样例和边界数据手动推演，重点检查边界条件、输出格式和数据类型范围。";
-            case JudgeStatus.TIME_LIMIT_EXCEEDED -> "程序运行超时。请估算当前算法复杂度，并结合题目数据范围考虑是否需要更高效的数据结构或算法。";
-            case JudgeStatus.MEMORY_LIMIT_EXCEEDED -> "程序内存超限。请检查是否开了过大的数组、保存了不必要的中间状态，或存在递归/容器膨胀问题。";
-            case JudgeStatus.RUNTIME_ERROR -> "程序运行时错误。请检查数组越界、空引用、除零、递归栈溢出以及输入读取数量是否和题意一致。";
-            default -> "当前提交未通过。AI 反馈暂时不可用，请先根据判题状态和错误信息定位问题。";
-        };
-    }
-
     private SubmissionJudgeResult selectJudgeResult(Long submissionId) {
         return judgeResultMapper.selectOne(
                 new LambdaQueryWrapper<SubmissionJudgeResult>()
@@ -269,7 +297,9 @@ public class JudgeFeedbackService {
     }
 
     private JudgeFeedbackVO toVO(JudgeFeedback feedback) {
-        if (feedback == null) {
+        if (feedback == null
+                || !"SUCCESS".equals(feedback.getStatus())
+                || !StringUtils.hasText(feedback.getContent())) {
             return null;
         }
         JudgeFeedbackVO vo = new JudgeFeedbackVO();
@@ -279,5 +309,15 @@ public class JudgeFeedbackService {
 
     private String defaultString(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private boolean feedbackEligible(Submission submission, SubmissionJudgeResult judgeResult) {
+        return submission != null
+                && submission.getId() != null
+                && judgeResult != null
+                && judgeResult.getStatus() != null
+                && judgeResult.getStatus() != JudgeStatus.PENDING
+                && judgeResult.getStatus() != JudgeStatus.JUDGING
+                && judgeResult.getStatus() != JudgeStatus.ACCEPTED;
     }
 }

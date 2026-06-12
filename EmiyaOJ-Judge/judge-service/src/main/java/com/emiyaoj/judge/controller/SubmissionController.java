@@ -46,9 +46,6 @@ public class SubmissionController {
     public ResponseResult<JudgeFeedbackVO> getSubmissionFeedback(
             @Parameter(description = "Submission ID") @PathVariable Long id) {
         JudgeFeedbackVO feedback = submissionService.getFeedbackBySubmissionId(id);
-        if (feedback == null) {
-            return ResponseResult.fail(404, "Submission feedback does not exist");
-        }
         return ResponseResult.success(feedback);
     }
 
