@@ -1,0 +1,649 @@
+@startuml EmiyaOJ_UML20_Design_Class
+
+' EmiyaOJ-Cloud UML 2.0 设计级类图
+' 基于分析级类图展开为当前 Spring Cloud 代码中的 Controller、Service、Mapper、Feign、实体和外部适配器。
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontSize 10
+skinparam roundcorner 8
+skinparam classBackgroundColor #FEFEFE
+skinparam classBorderColor #455A64
+skinparam classBackgroundColor<<boundary>> #E3F2FD
+skinparam classBorderColor<<boundary>> #1565C0
+skinparam classBackgroundColor<<control>> #FFF3E0
+skinparam classBorderColor<<control>> #EF6C00
+skinparam classBackgroundColor<<entity>> #E8F5E9
+skinparam classBorderColor<<entity>> #2E7D32
+skinparam classBackgroundColor<<mapper>> #F5F5F5
+skinparam classBorderColor<<mapper>> #757575
+skinparam classBackgroundColor<<client>> #FCE4EC
+skinparam classBorderColor<<client>> #AD1457
+skinparam classBackgroundColor<<external>> #F3E5F5
+skinparam classBorderColor<<external>> #6A1B9A
+
+title EmiyaOJ-Cloud UML2.0 设计级类图
+
+package "Gateway / Common" #F5F8FF {
+  class "AuthGlobalFilter" as AuthGlobalFilter <<boundary>> {
+    + filter(exchange, chain)
+    - isWhitelistPath(path)
+    - extractToken(request)
+    - injectUserHeaders(exchange, claims)
+  }
+
+  class "JwtUtil" as JwtUtil <<control>> {
+    + createJWT(secretKey, ttl, claims)
+    + parseJWT(secretKey, token)
+  }
+
+  class "RedisUtil" as RedisUtil <<control>> {
+    + set(key, value, ttl)
+    + get(key)
+    + delete(key)
+    + hasKey(key)
+  }
+
+  class "BaseContext" as BaseContext <<control>> {
+    + setCurrentId(id)
+    + getCurrentId()
+    + remove()
+  }
+
+  class "ResponseResult" as ResponseResult <<entity>> {
+    code
+    message
+    data
+  }
+
+  AuthGlobalFilter --> JwtUtil : 解析 JWT
+  AuthGlobalFilter --> RedisUtil : 校验白名单
+  AuthGlobalFilter --> BaseContext : 注入用户上下文
+}
+
+package "Auth Service" #EEF7FF {
+  class "AuthController" as AuthController <<boundary>> {
+    + register(registerDTO)
+    + login(loginDTO)
+    + logout(userId)
+    + parseToken(token)
+  }
+
+  class "UserController" as UserController <<boundary>> {
+    + page(pageDTO)
+    + save(dto)
+    + assignRoles(id, roleIds)
+  }
+
+  interface "IUserService" as IUserService <<control>> {
+    + register(dto)
+    + saveUser(dto)
+    + assignRoles(id, roleIds)
+  }
+
+  class "AuthService" as AuthService <<control>> {
+    + login(dto)
+    + logout(userId)
+    + parseToken(token)
+  }
+
+  class "UserServiceImpl" as UserServiceImpl <<control>> {
+    + register(dto)
+    + saveUser(dto)
+    + assignRoles(id, roleIds)
+  }
+
+  class "UserDetailsServiceImpl" as UserDetailsServiceImpl <<control>> {
+    + loadUserByUsername(username)
+  }
+
+  class "LoginUser" as LoginUser <<entity>> {
+    user
+    permissions
+  }
+
+  class "User" as UserEntity <<entity>> {
+    id
+    username
+    password
+    nickname
+    status
+  }
+
+  class "Role" as RoleEntity <<entity>> {
+    id
+    roleCode
+    roleName
+    status
+  }
+
+  class "Permission" as PermissionEntity <<entity>> {
+    id
+    permissionCode
+    permissionType
+    path
+  }
+
+  interface "UserMapper" as UserMapper <<mapper>>
+  interface "RoleMapper" as RoleMapper <<mapper>>
+  interface "PermissionMapper" as PermissionMapper <<mapper>>
+  interface "UserRoleMapper" as UserRoleMapper <<mapper>>
+  interface "RolePermissionMapper" as RolePermissionMapper <<mapper>>
+
+  AuthController --> AuthService
+  AuthController --> IUserService : 注册
+  UserController --> IUserService
+  IUserService <|.. UserServiceImpl
+  AuthService --> UserDetailsServiceImpl : Spring Security
+  AuthService --> RedisUtil : token 白名单
+  AuthService ..> JwtUtil : 签发/解析
+  UserDetailsServiceImpl --> UserMapper
+  UserDetailsServiceImpl --> RoleMapper
+  UserDetailsServiceImpl --> PermissionMapper
+  UserServiceImpl --> UserMapper
+  UserServiceImpl --> UserRoleMapper
+  UserEntity "*" -- "*" RoleEntity : user_role
+  RoleEntity "*" -- "*" PermissionEntity : role_permission
+  LoginUser --> UserEntity : 包装
+}
+
+package "Problem Service" #F4FFF1 {
+  class "ProblemController" as ProblemController <<boundary>> {
+    + list(queryDTO)
+    + detail(id)
+    + save(dto, userId)
+    + update(dto, userId)
+    + delete(id)
+  }
+
+  class "TestCaseController" as TestCaseController <<boundary>> {
+    + listByProblem(problemId)
+    + save(dto)
+    + delete(id)
+  }
+
+  class "LanguageController" as LanguageController <<boundary>> {
+    + list()
+    + save(dto)
+    + update(dto)
+  }
+
+  class "ContestController" as ContestController <<boundary>> {
+    + list(queryDTO, userId)
+    + detail(id, userId)
+    + register(id, dto, userId)
+    + rank(id, userId)
+    + submitCheck(id, problemId, userId)
+  }
+
+  class "ProblemService" as ProblemService <<control>> {
+    + queryProblemPage(queryDTO)
+    + getProblemDetail(id)
+    + saveProblem(dto, operatorId)
+    + updateProblem(dto, operatorId)
+    + listPublicProblemsByIds(ids)
+  }
+
+  class "TestCaseService" as TestCaseService <<control>> {
+    + listByProblemId(problemId)
+    + saveTestCase(dto)
+  }
+
+  class "LanguageService" as LanguageService <<control>> {
+    + listEnabled()
+    + getLanguage(id)
+    + saveLanguage(dto)
+  }
+
+  class "ContestService" as ContestService <<control>> {
+    + saveContest(dto, userId)
+    + registerContest(contestId, dto, userId)
+    + checkContestSubmit(contestId, problemId, userId)
+    + getRank(contestId, userId)
+  }
+
+  class "Problem" as ProblemEntity <<entity>> {
+    id
+    title
+    difficulty
+    timeLimit
+    memoryLimit
+    status
+  }
+
+  class "TestCase" as TestCaseEntity <<entity>> {
+    id
+    problemId
+    input
+    output
+    score
+  }
+
+  class "Language" as LanguageEntity <<entity>> {
+    id
+    name
+    compileCommand
+    runCommand
+    isCompiled
+  }
+
+  class "Tag" as TagEntity <<entity>> {
+    id
+    name
+    color
+  }
+
+  class "Contest" as ContestEntity <<entity>> {
+    id
+    title
+    ruleType
+    startTime
+    endTime
+    inviteCode
+  }
+
+  class "ContestProblem" as ContestProblemEntity <<entity>> {
+    contestId
+    problemId
+    label
+    score
+  }
+
+  class "ContestRegistration" as ContestRegistrationEntity <<entity>> {
+    contestId
+    userId
+    createTime
+  }
+
+  class "ContestAdmin" as ContestAdminEntity <<entity>> {
+    contestId
+    userId
+  }
+
+  interface "ProblemMapper" as ProblemMapper <<mapper>>
+  interface "ProblemTagMapper" as ProblemTagMapper <<mapper>>
+  interface "TagMapper" as TagMapper <<mapper>>
+  interface "TestCaseMapper" as TestCaseMapper <<mapper>>
+  interface "LanguageMapper" as LanguageMapper <<mapper>>
+  interface "ContestMapper" as ContestMapper <<mapper>>
+  interface "ContestProblemMapper" as ContestProblemMapper <<mapper>>
+  interface "ContestRegistrationMapper" as ContestRegistrationMapper <<mapper>>
+  interface "ContestAdminMapper" as ContestAdminMapper <<mapper>>
+
+  ProblemController --> ProblemService
+  TestCaseController --> TestCaseService
+  LanguageController --> LanguageService
+  ContestController --> ContestService
+  ProblemService --> ProblemMapper
+  ProblemService --> ProblemTagMapper
+  ProblemService --> TagMapper
+  TestCaseService --> TestCaseMapper
+  LanguageService --> LanguageMapper
+  ContestService --> ContestMapper
+  ContestService --> ContestProblemMapper
+  ContestService --> ContestRegistrationMapper
+  ContestService --> ContestAdminMapper
+  ContestService --> ProblemService : 竞赛题目详情
+  ProblemEntity "1" -- "1..*" TestCaseEntity
+  ProblemEntity "*" -- "*" TagEntity : problem_tag
+  ContestEntity "1" -- "1..*" ContestProblemEntity
+  ContestEntity "1" -- "0..*" ContestRegistrationEntity
+  ContestEntity "1" -- "1..*" ContestAdminEntity
+  ContestProblemEntity "*" --> "1" ProblemEntity
+}
+
+package "Judge Service" #FFF8E8 {
+  class "JudgeController" as JudgeController <<boundary>> {
+    + submitCode(dto, userId)
+  }
+
+  class "SubmissionController" as SubmissionController <<boundary>> {
+    + getSubmissionById(id)
+    + getSubmissionPage(pageDTO, problemId, userId)
+    + listContestSubmissions(contestId)
+  }
+
+  class "SubmissionService" as SubmissionService <<control>> {
+    + submitCode(dto, userId)
+    + getSubmissionById(id)
+    + getSubmissionPage(pageDTO, problemId, userId)
+    + listContestSubmissions(contestId)
+  }
+
+  class "JudgeExecutor" as JudgeExecutor <<control>> {
+    + executeJudgeAsync(submissionId, problemId, languageId, code)
+    - updateSummary(summaryArgs)
+    - outputAccepted(runResult, testCase)
+  }
+
+  class "GoJudgeService" as GoJudgeService <<control>> {
+    + compile(code, language)
+    + run(language, fileIds, code, testCase, timeLimit, memoryLimit)
+    + deleteFile(fileId)
+  }
+
+  class "JudgeResultCalculator" as JudgeResultCalculator <<control>> {
+    + buildSummary(summaryArgs)
+    + mapExecutionFailure(runResult)
+    + awardedCaseScore(testCase, weightedScore, accepted)
+  }
+
+  class "Submission" as SubmissionEntity <<entity>> {
+    id
+    problemId
+    contestId
+    userId
+    languageId
+    code
+  }
+
+  class "SubmissionJudgeResult" as SubmissionJudgeResultEntity <<entity>> {
+    submissionId
+    status
+    score
+    passedCaseCount
+    totalCaseCount
+  }
+
+  class "SubmissionCaseResult" as SubmissionCaseResultEntity <<entity>> {
+    submissionId
+    testCaseId
+    status
+    timeUsed
+    memoryUsed
+  }
+
+  enum "JudgeStatus" as JudgeStatusEnum <<entity>> {
+    PENDING
+    JUDGING
+    ACCEPTED
+    COMPILE_ERROR
+    WRONG_ANSWER
+    SYSTEM_ERROR
+  }
+
+  class "GoJudgeRequest" as GoJudgeRequest <<entity>> {
+    cmd
+    pipeMapping
+  }
+
+  class "GoJudgeResult" as GoJudgeResult <<entity>> {
+    status
+    time
+    memory
+    files
+    fileIds
+  }
+
+  interface "SubmissionMapper" as SubmissionMapper <<mapper>>
+  interface "SubmissionJudgeResultMapper" as SubmissionJudgeResultMapper <<mapper>>
+  interface "SubmissionCaseResultMapper" as SubmissionCaseResultMapper <<mapper>>
+
+  interface "ProblemFeignClient" as ProblemFeignClient <<client>> {
+    + getProblemById(id)
+    + getLanguageById(id)
+    + getTestCasesByProblemId(problemId)
+    + checkContestSubmit(contestId, problemId, userId)
+  }
+
+  JudgeController --> SubmissionService
+  SubmissionController --> SubmissionService
+  SubmissionService --> SubmissionMapper
+  SubmissionService --> SubmissionJudgeResultMapper
+  SubmissionService --> SubmissionCaseResultMapper
+  SubmissionService --> JudgeExecutor : 异步触发
+  SubmissionService --> ProblemFeignClient : 校验题目/语言/竞赛
+  JudgeExecutor --> GoJudgeService
+  JudgeExecutor --> JudgeResultCalculator
+  JudgeExecutor --> ProblemFeignClient : 拉取判题配置
+  JudgeExecutor --> SubmissionJudgeResultMapper : 更新汇总
+  JudgeExecutor --> SubmissionCaseResultMapper : 保存明细
+  GoJudgeService ..> GoJudgeRequest : 构造
+  GoJudgeService ..> GoJudgeResult : 返回
+  SubmissionEntity "1" -- "1" SubmissionJudgeResultEntity
+  SubmissionEntity "1" -- "0..*" SubmissionCaseResultEntity
+  SubmissionJudgeResultEntity ..> JudgeStatusEnum
+  SubmissionCaseResultEntity ..> JudgeStatusEnum
+}
+
+package "Blog Service" #FFF0F6 {
+  class "BlogController" as BlogController <<boundary>> {
+    + addBlog(dto, userId)
+    + queryBlog(dto, userId, permissions)
+    + addComment(blogId, dto, userId)
+    + likeBlog(blogId, userId)
+    + applyModerationResult(resultDTO, token)
+  }
+
+  interface "IBlogService" as IBlogService <<control>>
+  interface "IUserBlogService" as IUserBlogService <<control>>
+  interface "IBlogImageService" as IBlogImageService <<control>>
+
+  class "BlogServiceImpl" as BlogServiceImpl <<control>> {
+    + saveBlog(dto, userId)
+    + saveSolution(problemId, dto, userId)
+    + select(queryDTO, userId, permissions)
+    + saveComment(blogId, dto, userId)
+    + applyModerationResult(resultDTO)
+    + updateBlogAuditStatus(blogId, status, reason, permissions)
+  }
+
+  class "UserBlogServiceImpl" as UserBlogServiceImpl <<control>> {
+    + starBlog(blogId, userId)
+    + unstarBlog(blogId, userId)
+    + selectUserBlogStats(userId)
+  }
+
+  class "BlogImageServiceImpl" as BlogImageServiceImpl <<control>> {
+    + upload(file, userId)
+    + download(id)
+    + delete(id, userId)
+  }
+
+  class "ModerationTaskPublisher" as ModerationTaskPublisher <<control>> {
+    + publishBlog(message)
+    + publishComment(message)
+  }
+
+  class "BlogImageUrlResolver" as BlogImageUrlResolver <<control>> {
+    + buildPublicUrl(objectName)
+    + rewriteLegacyContentUrls(content)
+  }
+
+  class "Blog" as BlogEntity <<entity>> {
+    id
+    userId
+    title
+    content
+    blogType
+    auditStatus
+  }
+
+  class "BlogComment" as BlogCommentEntity <<entity>> {
+    id
+    blogId
+    userId
+    content
+    auditStatus
+  }
+
+  class "BlogTag" as BlogTagEntity <<entity>> {
+    id
+    name
+    desc
+  }
+
+  class "BlogPicture" as BlogPictureEntity <<entity>> {
+    id
+    userId
+    blogId
+    objectName
+    url
+  }
+
+  class "BlogLike" as BlogLikeEntity <<entity>> {
+    userId
+    blogId
+    deleted
+  }
+
+  class "BlogStar" as BlogStarEntity <<entity>> {
+    userId
+    blogId
+    deleted
+  }
+
+  interface "BlogMapper" as BlogMapper <<mapper>>
+  interface "BlogCommentMapper" as BlogCommentMapper <<mapper>>
+  interface "BlogTagMapper" as BlogTagMapper <<mapper>>
+  interface "BlogTagAssociationMapper" as BlogTagAssociationMapper <<mapper>>
+  interface "BlogPictureMapper" as BlogPictureMapper <<mapper>>
+  interface "BlogLikeMapper" as BlogLikeMapper <<mapper>>
+  interface "BlogStarMapper" as BlogStarMapper <<mapper>>
+
+  BlogController --> IBlogService
+  BlogController --> IUserBlogService
+  BlogController --> IBlogImageService
+  IBlogService <|.. BlogServiceImpl
+  IUserBlogService <|.. UserBlogServiceImpl
+  IBlogImageService <|.. BlogImageServiceImpl
+  BlogServiceImpl --> BlogMapper
+  BlogServiceImpl --> BlogCommentMapper
+  BlogServiceImpl --> BlogTagMapper
+  BlogServiceImpl --> BlogTagAssociationMapper
+  BlogServiceImpl --> BlogPictureMapper
+  BlogServiceImpl --> BlogLikeMapper
+  BlogServiceImpl --> RedisUtil : 浏览去重
+  BlogServiceImpl --> ModerationTaskPublisher : 发布审核任务
+  BlogServiceImpl --> BlogImageUrlResolver
+  UserBlogServiceImpl --> BlogStarMapper
+  BlogImageServiceImpl --> BlogPictureMapper
+  BlogEntity "1" -- "0..*" BlogCommentEntity
+  BlogEntity "*" -- "*" BlogTagEntity : blog_tag_association
+  BlogEntity "1" -- "0..*" BlogPictureEntity
+  BlogEntity "1" -- "0..*" BlogLikeEntity
+  BlogEntity "1" -- "0..*" BlogStarEntity
+  BlogEntity ..> ProblemEntity : 题解关联
+}
+
+package "Moderation Service" #FFF9EC {
+  class "ModerationTaskConsumer" as ModerationTaskConsumer <<boundary>> {
+    + consume(task, message, channel, deliveryTag)
+    - callbackWithRetry(result)
+  }
+
+  class "TextModerationService" as TextModerationService <<control>> {
+    + moderate(message)
+    - buildRequest(text)
+    - parseResponse(message, response)
+  }
+
+  class "ModerationTaskMessage" as ModerationTaskMessage <<entity>> {
+    taskId
+    targetType
+    targetId
+    userId
+    title
+    content
+  }
+
+  class "ModerationResultDTO" as ModerationResultDTO <<entity>> {
+    taskId
+    targetType
+    targetId
+    auditStatus
+    suggestion
+    reason
+  }
+
+  enum "AuditStatus" as AuditStatusEnum <<entity>> {
+    PENDING
+    APPROVED
+    REJECTED
+    MANUAL_REVIEW
+  }
+
+  interface "BlogFeignClient" as BlogFeignClient <<client>> {
+    + applyModerationResult(resultDTO)
+  }
+
+  class "Aliyun ScanText API" as AliyunScanTextApi <<external>>
+  class "RabbitMQ" as RabbitMQ <<external>>
+
+  RabbitMQ --> ModerationTaskConsumer : 投递审核任务
+  ModerationTaskConsumer --> TextModerationService
+  ModerationTaskConsumer --> BlogFeignClient : 回调结果
+  TextModerationService --> AliyunScanTextApi : scanText
+  TextModerationService ..> ModerationTaskMessage
+  TextModerationService ..> ModerationResultDTO
+  ModerationResultDTO ..> AuditStatusEnum
+  BlogFeignClient ..> BlogController : /blog/internal/moderation/result
+}
+
+package "Chat Service" #EEF8F7 {
+  class "ChatController" as ChatController <<boundary>> {
+    + sendMessage(requestDTO)
+  }
+
+  interface "IChatService" as IChatService <<control>> {
+    + sendMessage(requestDTO)
+  }
+
+  class "ChatServiceImpl" as ChatServiceImpl <<control>> {
+    + sendMessage(requestDTO)
+    - buildMessages()
+    - parseApiResponse()
+  }
+
+  class "ChatRequestDTO" as ChatRequestDTO <<entity>> {
+    message
+    history
+  }
+
+  class "ChatMessageDTO" as ChatMessageDTO <<entity>> {
+    role
+    content
+  }
+
+  class "ChatProperties" as ChatProperties <<entity>> {
+    apiUrl
+    apiKey
+    model
+  }
+
+  class "DashScope API" as DashScopeApi <<external>>
+
+  ChatController --> IChatService
+  IChatService <|.. ChatServiceImpl
+  ChatServiceImpl --> ChatProperties
+  ChatServiceImpl ..> ChatRequestDTO
+  ChatServiceImpl ..> ChatMessageDTO
+  ChatServiceImpl --> DashScopeApi : HTTP
+  ChatRequestDTO "1" -- "0..*" ChatMessageDTO
+}
+
+package "Cross-Service Feign" #FCE4EC {
+  interface "AuthUserFeignClient" as AuthUserFeignClient <<client>> {
+    + listUsersByIds(ids)
+    + listUsersByPermission(permission)
+  }
+
+  interface "SubmissionFeignClient" as SubmissionFeignClient <<client>> {
+    + listContestSubmissions(contestId)
+  }
+
+  ContestService --> AuthUserFeignClient : 查询竞赛管理员候选
+  ContestService --> SubmissionFeignClient : 获取排行榜提交
+  BlogServiceImpl --> AuthUserFeignClient : 加载作者信息
+  BlogServiceImpl --> ProblemFeignClient : 校验题解题目
+  ProblemFeignClient ..> ProblemController
+  ProblemFeignClient ..> TestCaseController
+  ProblemFeignClient ..> LanguageController
+  SubmissionFeignClient ..> SubmissionController
+  AuthUserFeignClient ..> UserController
+}
+
+@enduml

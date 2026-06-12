@@ -18,4 +18,6 @@ import java.util.List;
 public class SubmissionDetailVO extends SubmissionVO implements Serializable {
 
     private List<SubmissionCaseResultVO> caseResults;
+
+    private JudgeFeedbackVO feedback;
 }

@@ -35,6 +35,17 @@ build/
 ### VS Code ###
 .vscode/
 
+# Environment / secrets
+.env
+!.env.example
+
+### Python / uv ###
+__pycache__/
+*.py[cod]
+.venv/
+.uv-cache/
+.uv-python/
+
 ### Mac OS ###
 .DS_Store
 
@@ -47,6 +58,7 @@ hs_err_pid*
 replay_pid*
 .env
 .env.*
+!.env.example
 /EmiyaOJ-Old/
 
 /docs/*.html
